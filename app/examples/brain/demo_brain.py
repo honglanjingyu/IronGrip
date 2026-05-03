@@ -1,21 +1,15 @@
 #!/usr/bin/env python
-"""大脑模块完整测试 Demo - 集成 Milvus 知识库"""
+"""大脑模块完整测试 Demo - 使用行动模块的工具"""
 
 import asyncio
 import sys
 from pathlib import Path
 
 # 添加项目根目录到路径
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from app.brain import BrainManager, get_brain_manager
-from app.tools.builtin_tools import (
-    get_current_time,
-    search_knowledge,
-    search_knowledge_with_filter,
-    get_knowledge_stats,
-    add_to_knowledge
-)
+from app.action import get_action_manager
 from loguru import logger
 
 
@@ -219,20 +213,15 @@ async def demo_stream():
 
 
 async def demo_tool_integration():
-    """测试 5: 工具集成 - 使用真实的 Milvus 知识库"""
+    """测试 5: 工具集成 - 使用行动模块的工具"""
     print("\n" + "=" * 60)
-    print("测试 5: 工具集成（Milvus 知识库）")
+    print("测试 5: 工具集成（使用行动模块）")
     print("=" * 60)
 
     brain = get_brain_manager()
 
-    # 注册真实工具
-    brain.register_tools([
-        get_current_time,
-        search_knowledge,
-        search_knowledge_with_filter,
-        get_knowledge_stats
-    ])
+    # 注册内置工具（通过行动模块）
+    brain.register_builtin_tools()
 
     print(f"🔧 已注册工具: {brain.list_tools()}")
 
@@ -240,7 +229,13 @@ async def demo_tool_integration():
     print("\n" + "-" * 40)
     print("📊 知识库状态")
     try:
-        stats_result = await get_knowledge_stats.ainvoke({})
+        # 通过行动管理器获取知识库统计
+        action_manager = get_action_manager()
+        stats_result = await action_manager.execute_tool_call(
+            tool_name="get_knowledge_stats",
+            tool_input={},
+            session_id="test-stats"
+        )
         print(stats_result)
     except Exception as e:
         print(f"⚠️ 无法获取知识库状态: {e}")
@@ -271,7 +266,7 @@ async def demo_tool_integration():
                 print(f"\n🔧 工具调用详情:")
                 print(f"   工具: {step.action.tool_name}")
                 print(f"   参数: {step.action.tool_input}")
-                print(f"   结果: {step.result}")
+                print(f"   结果: {step.result[:200]}...")
 
     except Exception as e:
         logger.error(f"测试失败: {e}")
@@ -337,10 +332,15 @@ async def demo_tool_integration():
 
 
 async def demo_add_knowledge():
-    """测试 6: 添加知识到知识库"""
+    """测试 6: 添加知识到知识库（通过行动模块）"""
     print("\n" + "=" * 60)
-    print("测试 6: 添加知识到 Milvus 知识库")
+    print("测试 6: 添加知识到知识库（通过行动模块）")
     print("=" * 60)
+
+    action_manager = get_action_manager()
+
+    # 确保内置工具已注册
+    action_manager.register_builtin_tools()
 
     # 测试添加新知识
     test_knowledge = [
@@ -368,7 +368,15 @@ async def demo_add_knowledge():
         print(f"  分类: {knowledge['category']}")
 
         try:
-            result = await add_to_knowledge.ainvoke(knowledge)
+            result = await action_manager.execute_tool_call(
+                tool_name="add_to_knowledge",
+                tool_input={
+                    "content": knowledge["content"],
+                    "category": knowledge["category"],
+                    "source": knowledge["source"]
+                },
+                session_id="test-add"
+            )
             print(f"  结果: {result}")
         except Exception as e:
             print(f"  ❌ 添加失败: {e}")
@@ -377,17 +385,24 @@ async def demo_add_knowledge():
     print("\n" + "-" * 40)
     print("📊 更新后的知识库状态:")
     try:
-        stats = await get_knowledge_stats.ainvoke({})
+        stats = await action_manager.execute_tool_call(
+            tool_name="get_knowledge_stats",
+            tool_input={},
+            session_id="test-stats"
+        )
         print(stats)
     except Exception as e:
         print(f"⚠️ 无法获取知识库状态: {e}")
 
 
 async def demo_hybrid_search():
-    """测试 7: 混合搜索（向量 + 分类过滤）"""
+    """测试 7: 混合搜索（向量 + 分类过滤）- 通过行动模块"""
     print("\n" + "=" * 60)
-    print("测试 7: 混合搜索")
+    print("测试 7: 混合搜索（通过行动模块）")
     print("=" * 60)
+
+    action_manager = get_action_manager()
+    action_manager.register_builtin_tools()
 
     # 测试不同分类的搜索
     test_queries = [
@@ -402,18 +417,26 @@ async def demo_hybrid_search():
 
         try:
             if category:
-                result = await search_knowledge_with_filter.ainvoke({
-                    "query": query,
-                    "category": category,
-                    "top_k": 2
-                })
+                result = await action_manager.execute_tool_call(
+                    tool_name="search_knowledge_with_filter",
+                    tool_input={
+                        "query": query,
+                        "category": category,
+                        "top_k": 2
+                    },
+                    session_id="test-search"
+                )
             else:
-                result = await search_knowledge.ainvoke({
-                    "query": query,
-                    "top_k": 2
-                })
+                result = await action_manager.execute_tool_call(
+                    tool_name="search_knowledge",
+                    tool_input={
+                        "query": query,
+                        "top_k": 2
+                    },
+                    session_id="test-search"
+                )
 
-            # 只显示前200字符
+            # 只显示前300字符
             preview = result[:300] + "..." if len(result) > 300 else result
             print(f"结果:\n{preview}")
 
@@ -424,7 +447,7 @@ async def demo_hybrid_search():
 async def main():
     """主函数"""
     print("\n" + "🧠" * 35)
-    print("  大脑模块完整测试套件（集成 Milvus 知识库）")
+    print("  大脑模块完整测试套件（使用行动模块）")
     print("🧠" * 35)
 
     # 运行所有测试

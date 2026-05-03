@@ -1,27 +1,28 @@
 #!/usr/bin/env python
-"""测试大脑模块 + 真实工具"""
+"""测试大脑模块 + 行动模块工具"""
 
 import asyncio
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# 添加项目根目录到路径
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from app.brain import get_brain_manager
-from app.tools.builtin_tools import get_current_time, search_knowledge
+from app.action import get_action_manager
 from loguru import logger
 
 
 async def demo_with_tools():
     print("\n" + "=" * 60)
-    print("测试大脑模块 + 真实工具")
+    print("测试大脑模块 + 行动模块工具")
     print("=" * 60)
 
     # 创建大脑实例
     brain = get_brain_manager()
 
-    # 注册真实工具
-    brain.register_tools([get_current_time, search_knowledge])
+    # 注册内置工具（通过行动模块）
+    brain.register_builtin_tools()
 
     print(f"✅ 已注册工具: {brain.list_tools()}")
 
@@ -49,7 +50,8 @@ async def demo_with_tools():
             print(f"\n🔧 工具调用详情:")
             print(f"   工具: {step.action.tool_name}")
             print(f"   参数: {step.action.tool_input}")
-            print(f"   结果: {step.result}")
+            result_preview = step.result[:200] if step.result else "无结果"
+            print(f"   结果: {result_preview}...")
 
     # 测试 2: 知识搜索
     print("\n" + "-" * 40)

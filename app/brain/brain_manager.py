@@ -2,49 +2,67 @@
 """大脑管理器 - 统一入口"""
 
 from typing import List, Dict, Any, Optional, AsyncGenerator
-from langchain_core.tools import BaseTool
 from loguru import logger
-from langchain_core.tools import BaseTool
 
 from .models import BrainState, BrainResponse, ExecutionStep, ActionType
 from .planner import Planner
 from .executor import Executor
 from .replanner import Replanner
 from .workflow import BrainWorkflow
+from app.action import get_action_manager
 
 
 class BrainManager:
-    """
-    大脑管理器
-
-    统一管理大脑的所有组件：
-    - Planner: 制定计划
-    - Executor: 执行步骤
-    - Replanner: 反思调整
-    """
+    """大脑管理器 - 统一入口"""
 
     def __init__(self):
         self.planner = Planner()
-        self.executor = Executor()
+        self.executor = Executor()  # 现在使用行动模块
         self.replanner = Replanner()
         self.workflow = None  # 延迟初始化
 
-        self._tools_map: Dict[str, BaseTool] = {}
+        # 获取行动管理器
+        self.action_manager = get_action_manager()
 
-        logger.info("BrainManager 初始化完成")
+        # 工具映射（用于兼容性）
+        self._tools_map: Dict[str, Any] = {}
 
-    def register_tool(self, tool: BaseTool):
-        """注册单个工具"""
-        self._tools_map[tool.name] = tool
-        logger.info(f"注册工具: {tool.name}")
+        logger.info("BrainManager 初始化完成，已集成行动模块")
 
-    def register_tools(self, tools: List[BaseTool]):
-        """注册多个工具"""
+    def register_tool(self, tool: Any) -> None:
+        """
+        注册单个工具
+
+        Args:
+            tool: 工具函数或 LangChain 工具对象
+        """
+        tool_name = tool.name if hasattr(tool, 'name') else tool.__name__
+        self._tools_map[tool_name] = tool
+        self.action_manager.register_tool(tool)
+        logger.info(f"注册工具: {tool_name}")
+
+    def register_tools(self, tools: List[Any]) -> None:
+        """批量注册工具"""
         for tool in tools:
-            self._tools_map[tool.name] = tool
-        logger.info(f"注册了 {len(tools)} 个工具: {list(self._tools_map.keys())}")
+            self.register_tool(tool)
 
-    def get_tool(self, name: str) -> Optional[BaseTool]:
+    def register_builtin_tools(self) -> None:
+        """注册内置工具 - 使用行动模块的内置工具"""
+        # 行动模块已经注册了内置工具
+        self.action_manager.register_builtin_tools()
+
+        # 同步工具到本地 map（用于兼容性）
+        from app.action.tools import (
+            get_current_time, search_knowledge, search_knowledge_with_filter,
+            get_knowledge_stats, add_to_knowledge
+        )
+        for tool in [get_current_time, search_knowledge, search_knowledge_with_filter,
+                     get_knowledge_stats, add_to_knowledge]:
+            self._tools_map[tool.__name__] = tool
+
+        logger.info(f"已注册内置工具: {list(self._tools_map.keys())}")
+
+    def get_tool(self, name: str) -> Optional[Any]:
         """获取已注册的工具"""
         return self._tools_map.get(name)
 
@@ -73,12 +91,11 @@ class BrainManager:
         """
         logger.info(f"[会话 {session_id}] 大脑开始思考: {user_input[:100]}...")
 
-        # 初始化工作流
+        # 初始化工作流（不需要传递 tools_map）
         workflow = BrainWorkflow(
             planner=self.planner,
             executor=self.executor,
             replanner=self.replanner,
-            tools_map=self._tools_map,
             session_id=session_id
         )
 
@@ -122,12 +139,11 @@ class BrainManager:
         """
         logger.info(f"[会话 {session_id}] 大脑开始思考（流式）: {user_input[:100]}...")
 
-        # 初始化工作流
+        # 初始化工作流（不需要传递 tools_map）
         workflow = BrainWorkflow(
             planner=self.planner,
             executor=self.executor,
             replanner=self.replanner,
-            tools_map=self._tools_map,
             session_id=session_id
         )
 

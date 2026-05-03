@@ -2,9 +2,7 @@
 """Plan-Execute-Replan 工作流"""
 
 from typing import Dict, Any, List, Optional, AsyncGenerator
-from langchain_core.tools import BaseTool
 from loguru import logger
-import asyncio
 
 from .models import BrainState, BrainPhase, ExecutionStep, ActionType
 from .planner import Planner
@@ -27,13 +25,11 @@ class BrainWorkflow:
             planner: Planner,
             executor: Executor,
             replanner: Replanner,
-            tools_map: Dict[str, BaseTool],
             session_id: str = ""
     ):
         self.planner = planner
         self.executor = executor
         self.replanner = replanner
-        self.tools_map = tools_map
         self.session_id = session_id
 
     async def run(
@@ -147,7 +143,7 @@ class BrainWorkflow:
             if state.plan:
                 state.phase = BrainPhase.EXECUTING
                 async for event in self._execute_next_step_stream(state):
-                    if event:  # 只 yield 非 None 的事件
+                    if event:
                         yield event
 
             # 2.2 反思并决定下一步
@@ -162,7 +158,6 @@ class BrainWorkflow:
 
                 # 流式输出响应
                 yield {"type": "response_start"}
-                # 这里可以添加真正的流式输出
                 yield {"type": "response_chunk", "data": state.response}
                 yield {"type": "response_end"}
                 break
@@ -213,14 +208,15 @@ class BrainWorkflow:
         execution_step = ExecutionStep(step=step, action=action)
 
         if action.type == ActionType.TOOL_CALL and action.tool_name:
+            # 使用执行器的工具执行方法（已改为使用行动模块）
             result = await self.executor.execute_tool(
                 tool_name=action.tool_name,
                 tool_input=action.tool_input or {},
-                tools_map=self.tools_map,
                 session_id=self.session_id
             )
             execution_step.result = result
-            execution_step.success = not result.startswith("错误") and not result.startswith("工具")
+            # 检查是否成功（不以错误开头）
+            execution_step.success = not (result.startswith("错误") or result.startswith("工具"))
         else:
             execution_step.result = action.answer or "步骤已处理"
             execution_step.success = True
@@ -242,7 +238,7 @@ class BrainWorkflow:
             步骤执行过程中的事件
         """
         if not state.plan:
-            return  # 在 async generator 中使用空 return 是允许的
+            return
 
         step = state.plan[0]
 
@@ -276,14 +272,14 @@ class BrainWorkflow:
                 "input": action.tool_input
             }
 
+            # 使用执行器的工具执行方法（已改为使用行动模块）
             result = await self.executor.execute_tool(
                 tool_name=action.tool_name,
                 tool_input=action.tool_input or {},
-                tools_map=self.tools_map,
                 session_id=self.session_id
             )
             execution_step.result = result
-            execution_step.success = not result.startswith("错误") and not result.startswith("工具")
+            execution_step.success = not (result.startswith("错误") or result.startswith("工具"))
         else:
             execution_step.result = action.answer or "步骤已处理"
             execution_step.success = True
