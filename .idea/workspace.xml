@@ -1,16 +1,26 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="5e8acab2-1f0a-4ddd-82c1-d58e7ac753d3" name="更改" comment="">
-      <change afterPath="$PROJECT_DIR$/1.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/examples/demo_milvus.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/perception/config.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/perception/milvus_store.py" afterDir="false" />
+    <list default="true" id="5e8acab2-1f0a-4ddd-82c1-d58e7ac753d3" name="更改" comment="感知模块+Milvus">
+      <change afterPath="$PROJECT_DIR$/app/brain/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/brain/brain_manager.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/brain/config.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/brain/executor.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/brain/llm_client.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/brain/models.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/brain/planner.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/brain/replanner.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/brain/workflow.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/examples/brain/demo_brain.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/examples/brain/demo_brain_test_tools.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/examples/brain/demo_llm.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/examples/brain/demo_milvus_knowledge.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/tools/builtin_tools.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.env" beforeDir="false" afterPath="$PROJECT_DIR$/.env" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/examples/demo_perception.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/examples/demo_perception.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/perception/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/perception/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/perception/memory_retriever.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/perception/memory_retriever.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/perception/perception_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/perception/perception_manager.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/1.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/examples/demo_milvus.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/examples/perception/demo_milvus.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/examples/demo_perception.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/examples/perception/demo_perception.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -54,11 +64,16 @@
   "keyToString": {
     "ASKED_SHARE_PROJECT_CONFIGURATION_FILES": "true",
     "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "Python 测试.Python 测试 (demo_llm.py 内).executor": "Run",
     "Python 测试.Python 测试 (demo_milvus.py 内).executor": "Run",
     "Python 测试.Python 测试 (demo_perception.py 内).executor": "Run",
     "Python 测试.Python 测试 (main.py 内).executor": "Run",
     "Python 测试.Python 测试 (test_perception.py 内).executor": "Run",
+    "Python.demo_brain.executor": "Run",
+    "Python.demo_brain_test_tools.executor": "Run",
+    "Python.demo_llm.executor": "Run",
     "Python.demo_milvus.executor": "Run",
+    "Python.demo_milvus_knowledge.executor": "Run",
     "Python.demo_perception.executor": "Run",
     "Python.main.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
@@ -77,6 +92,8 @@
       <recent name="D:\JetBrains\PyCharm 2025.3.3\pycharmproject\Nexus" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="D:\JetBrains\PyCharm 2025.3.3\pycharmproject\Nexus\app\examples\brain" />
+      <recent name="D:\JetBrains\PyCharm 2025.3.3\pycharmproject\Nexus\app\examples\perception" />
       <recent name="D:\JetBrains\PyCharm 2025.3.3\pycharmproject\Nexus\app\examples" />
       <recent name="D:\JetBrains\PyCharm 2025.3.3\pycharmproject\Nexus" />
     </key>
@@ -98,19 +115,35 @@
       <updated>1777772644662</updated>
       <workItem from="1777772645980" duration="45000" />
       <workItem from="1777773234081" duration="3315000" />
-      <workItem from="1777785773443" duration="2995000" />
+      <workItem from="1777785773443" duration="7498000" />
     </task>
+    <task id="LOCAL-00001" summary="感知模块+Milvus">
+      <option name="closed" value="true" />
+      <created>1777788855376</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1777788855376</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="感知模块+Milvus" />
+    <option name="LAST_COMMIT_MESSAGE" value="感知模块+Milvus" />
+  </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/Nexus$demo_perception.coverage" NAME="demo_perception 覆盖结果" MODIFIED="1777788349171" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app/examples" />
+    <SUITE FILE_PATH="coverage/Nexus$demo_llm.coverage" NAME="demo_llm 覆盖结果" MODIFIED="1777790644986" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app/examples" />
+    <SUITE FILE_PATH="coverage/Nexus$demo_milvus_knowledge.coverage" NAME="demo_milvus_knowledge 覆盖结果" MODIFIED="1777791555143" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app/examples" />
     <SUITE FILE_PATH="coverage/Nexus$test.coverage" NAME="test 覆盖结果" MODIFIED="1777778834536" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/Nexus$demo_brain.coverage" NAME="demo_brain 覆盖结果" MODIFIED="1777780070012" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app/examples" />
-    <SUITE FILE_PATH="coverage/Nexus$.coverage" NAME=" 覆盖结果" MODIFIED="1777786154609" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Nexus$demo_brain.coverage" NAME="demo_brain 覆盖结果" MODIFIED="1777792409116" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app/examples/brain" />
     <SUITE FILE_PATH="coverage/Nexus$demo_milvus.coverage" NAME="demo_milvus 覆盖结果" MODIFIED="1777787555787" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app/examples" />
+    <SUITE FILE_PATH="coverage/Nexus$.coverage" NAME=" 覆盖结果" MODIFIED="1777790452574" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Nexus$main.coverage" NAME="main 覆盖结果" MODIFIED="1777776306894" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Nexus$demo_brain_test_tools.coverage" NAME="demo_brain_test_tools 覆盖结果" MODIFIED="1777791357862" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app/examples" />
   </component>
 </project>
