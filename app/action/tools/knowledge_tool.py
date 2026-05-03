@@ -1,92 +1,68 @@
-"""知识库工具 - 从 Milvus 知识库检索信息"""
+# app/action/tools/knowledge_tool.py - 重构后
+"""知识库工具 - 从记忆模块的知识库检索信息"""
 
 from typing import Optional
 from loguru import logger
+from datetime import datetime  # 确保这个导入在文件顶部
 
-# 导入感知模块的向量存储
-import sys
-from pathlib import Path
-
-# 添加项目根目录到路径
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
-
-try:
-    from app.perception import MilvusVectorStore
-    from app.perception.config import vector_store_config, embedding_config
-except ImportError:
-    logger.warning("无法导入感知模块，知识库工具将不可用")
-    MilvusVectorStore = None
-    vector_store_config = None
-    embedding_config = None
+# 使用记忆模块的长期记忆
+from app.memory.long_term_memory import LongTermMemory
+from app.memory.milvus_store import MilvusVectorStore
 
 
 _milvus_store = None
+_long_term_memory = None
 
 
-def get_milvus_store():
-    """获取 Milvus 向量存储实例（单例）"""
-    global _milvus_store
-
-    if MilvusVectorStore is None:
-        logger.error("感知模块不可用")
-        return None
-
-    if _milvus_store is None:
+def get_long_term_memory():
+    """获取长期记忆实例（单例）"""
+    global _long_term_memory, _milvus_store
+    
+    if _long_term_memory is None:
         try:
-            _milvus_store = MilvusVectorStore(
-                collection_name=vector_store_config.COLLECTION_NAME if vector_store_config else "agent_long_term_memory"
-            )
-            logger.info(f"Milvus 向量存储初始化成功")
+            _milvus_store = MilvusVectorStore()
+            _long_term_memory = LongTermMemory(vector_store=_milvus_store)
+            logger.info(f"长期记忆初始化成功")
         except Exception as e:
-            logger.error(f"Milvus 向量存储初始化失败: {e}")
-            _milvus_store = None
-    return _milvus_store
+            logger.error(f"长期记忆初始化失败: {e}")
+            _long_term_memory = None
+    return _long_term_memory
 
 
 async def search_knowledge(query: str, top_k: int = 3) -> str:
-    """
-    从知识库中搜索相关信息
-
-    Args:
-        query: 搜索查询词
-        top_k: 返回结果数量，默认 3 条
-
-    Returns:
-        str: 格式化的搜索结果
-    """
+    """从知识库中搜索相关信息"""
     logger.info(f"知识库搜索: query='{query}', top_k={top_k}")
-
-    milvus_store = get_milvus_store()
-
-    if milvus_store is None:
+    
+    long_memory = get_long_term_memory()
+    if long_memory is None:
         return "知识库服务不可用，请检查 Milvus 连接配置。"
-
+    
     try:
-        stats = milvus_store.get_collection_stats()
-        if not stats.get('exists', False) or stats.get('num_entities', 0) == 0:
+        stats = long_memory.get_stats()
+        if not stats.get('available', False) or stats.get('num_entities', 0) == 0:
             return "知识库为空，请先上传文档。"
-
-        results = milvus_store.similarity_search_with_score(query, k=top_k)
-
+        
+        results = await long_memory.retrieve(query, top_k=top_k, enable_rerank=False)
+        
         if not results:
             return f"未找到与 '{query}' 相关的知识。"
-
+        
         formatted = []
-        for i, (doc, score) in enumerate(results, 1):
-            similarity = score * 100
-            metadata = doc.metadata
+        for i, item in enumerate(results, 1):
+            similarity = item.score * 100
+            metadata = item.metadata
             source = metadata.get('_file_name', metadata.get('source', '未知来源'))
             category = metadata.get('category', '未分类')
-
+            
             formatted.append(
                 f"【结果 {i}】(相似度: {similarity:.1f}%)\n"
                 f"来源: {source}\n"
                 f"分类: {category}\n"
-                f"内容: {doc.page_content}"
+                f"内容: {item.content}"
             )
-
+        
         return f"找到 {len(results)} 条相关知识：\n\n" + "\n\n".join(formatted)
-
+        
     except Exception as e:
         logger.error(f"知识库搜索失败: {e}")
         return f"知识库搜索出错: {str(e)}"
@@ -97,50 +73,40 @@ async def search_knowledge_with_filter(
     category: Optional[str] = None,
     top_k: int = 3
 ) -> str:
-    """
-    从知识库中搜索（支持分类过滤）
-
-    Args:
-        query: 搜索查询词
-        category: 分类过滤
-        top_k: 返回结果数量
-
-    Returns:
-        str: 格式化的搜索结果
-    """
-    milvus_store = get_milvus_store()
-
-    if milvus_store is None:
+    """从知识库中搜索（支持分类过滤）"""
+    long_memory = get_long_term_memory()
+    
+    if long_memory is None:
         return "知识库服务不可用"
-
+    
     try:
-        results = milvus_store.similarity_search_with_score(query, k=top_k * 2)
-
+        # 先多检索一些，然后过滤
+        results = await long_memory.retrieve(query, top_k=top_k * 2, enable_rerank=False)
+        
         if category:
-            results = [(doc, score) for doc, score in results
-                       if doc.metadata.get('category') == category]
+            results = [item for item in results if item.metadata.get('category') == category]
             results = results[:top_k]
         else:
             results = results[:top_k]
-
+        
         if not results:
             filter_msg = f"且分类为 '{category}'" if category else ""
             return f"未找到与 '{query}'{filter_msg} 相关的知识。"
-
+        
         formatted = []
-        for i, (doc, score) in enumerate(results, 1):
-            similarity = score * 100
-            metadata = doc.metadata
-
+        for i, item in enumerate(results, 1):
+            similarity = item.score * 100
+            metadata = item.metadata
+            
             formatted.append(
                 f"【结果 {i}】(相似度: {similarity:.1f}%)\n"
                 f"来源: {metadata.get('_file_name', metadata.get('source', '未知'))}\n"
                 f"分类: {metadata.get('category', '未分类')}\n"
-                f"内容: {doc.page_content}"
+                f"内容: {item.content}"
             )
-
+        
         return f"找到 {len(results)} 条相关知识：\n\n" + "\n\n".join(formatted)
-
+        
     except Exception as e:
         logger.error(f"知识库搜索失败: {e}")
         return f"知识库搜索出错: {str(e)}"
@@ -148,68 +114,56 @@ async def search_knowledge_with_filter(
 
 async def get_knowledge_stats() -> str:
     """获取知识库统计信息"""
-    milvus_store = get_milvus_store()
-
-    if milvus_store is None:
+    long_memory = get_long_term_memory()
+    
+    if long_memory is None:
         return "知识库服务不可用"
-
+    
     try:
-        stats = milvus_store.get_collection_stats()
-
-        if not stats.get('exists', False):
+        stats = long_memory.get_stats()
+        
+        if not stats.get('available', False):
             return "知识库尚未初始化。"
-
+        
         result = f"""
 知识库统计信息:
-- 集合名称: {vector_store_config.COLLECTION_NAME if vector_store_config else 'N/A'}
+- 集合名称: {stats.get('collection_name', 'N/A')}
 - 文档总数: {stats.get('num_entities', 0)}
-- Milvus 地址: {vector_store_config.MILVUS_HOST}:{vector_store_config.MILVUS_PORT if vector_store_config else 'N/A'}
-""".strip()
-
-        return result
-
+- Milvus 地址: {stats.get('host', 'N/A')}:{stats.get('port', 'N/A')}
+"""
+        return result.strip()
+        
     except Exception as e:
         logger.error(f"获取知识库统计失败: {e}")
         return f"获取知识库统计出错: {str(e)}"
 
 
 async def add_to_knowledge(content: str, category: str = "general", source: str = "user") -> str:
-    """
-    添加知识到知识库
-
-    Args:
-        content: 知识内容
-        category: 分类
-        source: 来源
-
-    Returns:
-        str: 操作结果
-    """
-    from langchain_core.documents import Document
-    from datetime import datetime
-
-    milvus_store = get_milvus_store()
-
-    if milvus_store is None:
+    """添加知识到知识库"""
+    long_memory = get_long_term_memory()
+    
+    if long_memory is None:
         return "知识库服务不可用"
-
+    
     try:
-        doc = Document(
-            page_content=content,
+        import uuid
+        success = await long_memory.add_knowledge(
+            content=content,
             metadata={
                 "source": source,
                 "category": category,
                 "timestamp": datetime.now().isoformat()
             }
         )
-
-        ids = milvus_store.add_documents([doc])
-
-        if ids:
-            return f"✅ 知识已成功添加到知识库 (ID: {ids[0]})"
+        
+        if success:
+            return f"✅ 知识已成功添加到知识库"
         else:
             return "❌ 添加知识失败"
-
+        
     except Exception as e:
         logger.error(f"添加知识失败: {e}")
         return f"添加知识出错: {str(e)}"
+
+
+from datetime import datetime
