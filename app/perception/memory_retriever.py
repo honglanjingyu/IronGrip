@@ -1,3 +1,4 @@
+# app/perception/memory_retriever.py
 """记忆检索模块 - 从短期和长期记忆检索信息"""
 
 import uuid
@@ -7,24 +8,18 @@ from collections import deque
 from loguru import logger
 
 from .models import MemoryItem, MemoryType
+from .config import retrieval_config
 
 
 class ShortTermMemory:
     """短期记忆 - 最近对话上下文"""
 
     def __init__(self, max_size: int = 20):
-        """
-        初始化短期记忆
-
-        Args:
-            max_size: 最大消息数量（默认20条，约10轮对话）
-        """
         self.messages: deque = deque(maxlen=max_size)
         self.max_size = max_size
         logger.info(f"ShortTermMemory 初始化: max_size={max_size}")
 
     def add_message(self, role: str, content: str, metadata: Optional[Dict] = None):
-        """添加消息"""
         self.messages.append({
             "role": role,
             "content": content,
@@ -33,28 +28,25 @@ class ShortTermMemory:
         })
 
     def get_recent(self, n: int = 10) -> List[Dict]:
-        """获取最近的 N 条消息"""
         return list(self.messages)[-n:]
 
     def get_all(self) -> List[Dict]:
-        """获取所有消息"""
         return list(self.messages)
 
     def clear(self):
-        """清空记忆"""
         self.messages.clear()
         logger.info("短期记忆已清空")
 
 
 class LongTermMemory:
-    """长期记忆 - 向量知识库检索（抽象接口）"""
+    """长期记忆 - 向量知识库检索"""
 
     def __init__(self, vector_store_manager=None):
         """
         初始化长期记忆
 
         Args:
-            vector_store_manager: 向量存储管理器实例（可选，用于实际检索）
+            vector_store_manager: 向量存储管理器实例（如 MilvusVectorStore）
         """
         self.vector_store = vector_store_manager
         logger.info("LongTermMemory 初始化完成")
@@ -62,7 +54,7 @@ class LongTermMemory:
     async def retrieve(
         self,
         query: str,
-        top_k: int = 3
+        top_k: Optional[int] = None
     ) -> List[MemoryItem]:
         """
         从知识库检索相关记忆
@@ -79,17 +71,23 @@ class LongTermMemory:
             return []
 
         try:
-            # 执行向量检索
-            docs = self.vector_store.similarity_search(query, k=top_k)
+            top_k = top_k or retrieval_config.SIMILARITY_TOP_K
+
+            # 使用带分数的相似度搜索
+            results = self.vector_store.similarity_search_with_score(query, k=top_k)
 
             memory_items = []
-            for i, doc in enumerate(docs):
+            for doc, score in results:
+                # 过滤低于阈值的结果
+                if score < retrieval_config.SIMILARITY_THRESHOLD:
+                    continue
+
                 item = MemoryItem(
                     id=str(uuid.uuid4()),
                     type=MemoryType.LONG_TERM,
                     content=doc.page_content,
                     metadata=doc.metadata,
-                    score=1.0 - (i * 0.1)  # 模拟分数
+                    score=score
                 )
                 memory_items.append(item)
 
@@ -100,14 +98,38 @@ class LongTermMemory:
             logger.error(f"长期记忆检索失败: {e}")
             return []
 
-    async def add_knowledge(self, content: str, metadata: Optional[Dict] = None):
+    async def retrieve_hybrid(
+        self,
+        query: str,
+        top_k: Optional[int] = None,
+        vector_weight: Optional[float] = None,
+        keyword_weight: Optional[float] = None
+    ) -> List[MemoryItem]:
         """
-        添加知识到长期记忆
+        混合检索（向量 + 关键词）
 
         Args:
-            content: 知识内容
-            metadata: 元数据
+            query: 查询文本
+            top_k: 返回数量
+            vector_weight: 向量检索权重
+            keyword_weight: 关键词检索权重
         """
+        # 如果向量存储支持混合检索
+        if hasattr(self.vector_store, 'hybrid_search'):
+            results = await self.vector_store.hybrid_search(
+                query=query,
+                top_k=top_k,
+                vector_weight=vector_weight,
+                keyword_weight=keyword_weight
+            )
+            return results
+
+        # 否则回退到纯向量检索
+        logger.warning("向量存储不支持混合检索，使用纯向量检索")
+        return await self.retrieve(query, top_k)
+
+    async def add_knowledge(self, content: str, metadata: Optional[Dict] = None):
+        """添加知识到长期记忆"""
         if self.vector_store is None:
             logger.warning("向量存储未配置，无法添加知识")
             return
@@ -129,7 +151,6 @@ class WorkingMemory:
         logger.info("WorkingMemory 初始化完成")
 
     def set(self, key: str, value: Any):
-        """设置工作记忆"""
         self._data[key] = {
             "value": value,
             "timestamp": datetime.now().isoformat()
@@ -137,22 +158,18 @@ class WorkingMemory:
         logger.debug(f"工作记忆更新: {key}={str(value)[:50]}...")
 
     def get(self, key: str, default=None) -> Any:
-        """获取工作记忆"""
         if key in self._data:
             return self._data[key]["value"]
         return default
 
     def get_all(self) -> Dict[str, Any]:
-        """获取所有工作记忆"""
         return {k: v["value"] for k, v in self._data.items()}
 
     def clear(self):
-        """清空工作记忆"""
         self._data.clear()
         logger.info("工作记忆已清空")
 
     def get_summary(self) -> str:
-        """获取工作记忆摘要"""
         if not self._data:
             return "无工作记忆"
 
@@ -188,7 +205,7 @@ class MemoryRetriever:
         query: str,
         session_id: str,
         include_long_term: bool = True,
-        top_k: int = 3
+        top_k: Optional[int] = None
     ) -> tuple[List[MemoryItem], List[MemoryItem], Dict[str, Any]]:
         """
         检索所有类型的记忆

@@ -1,12 +1,14 @@
+# app/perception/perception_manager.py
 """感知管理器 - 统一管理感知模块的所有组件"""
 
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 from loguru import logger
 
-from .models import PerceptionResult, InputData, InputType
+from .models import PerceptionResult, InputData
 from .input_handler import InputHandler
 from .environment_sensor import EnvironmentSensor
 from .memory_retriever import MemoryRetriever
+from .config import vector_store_config, validate_config
 
 
 class PerceptionManager:
@@ -26,8 +28,16 @@ class PerceptionManager:
         Args:
             vector_store_manager: 向量存储管理器（用于长期记忆）
         """
+        # 验证配置
+        validate_config()
+
         self.input_handler = InputHandler()
         self.environment_sensor = EnvironmentSensor()
+
+        # 如果没有传入向量存储管理器且启用了存储，则自动创建
+        if vector_store_manager is None and vector_store_config.ENABLE_STORAGE:
+            vector_store_manager = self._create_vector_store()
+
         self.memory_retriever = MemoryRetriever(vector_store_manager)
 
         # 会话状态缓存
@@ -35,12 +45,26 @@ class PerceptionManager:
 
         logger.info("PerceptionManager 初始化完成")
 
+    def _create_vector_store(self):
+        """根据配置创建向量存储实例"""
+        if vector_store_config.VECTOR_STORE_TYPE == "milvus":
+            try:
+                from .milvus_store import MilvusVectorStore
+                logger.info("创建 Milvus 向量存储实例")
+                return MilvusVectorStore()
+            except Exception as e:
+                logger.error(f"创建 Milvus 向量存储失败: {e}")
+                return None
+        else:
+            logger.warning(f"不支持的向量存储类型: {vector_store_config.VECTOR_STORE_TYPE}")
+            return None
+
     async def perceive(
             self,
             input_text: str,
             session_id: str,
             include_long_term: bool = True,
-            top_k: int = 3,
+            top_k: Optional[int] = None,
             metadata: Optional[Dict] = None
     ) -> PerceptionResult:
         """
@@ -127,7 +151,7 @@ class PerceptionManager:
             file_path: str,
             session_id: str,
             include_long_term: bool = True,
-            top_k: int = 3
+            top_k: Optional[int] = None
     ) -> PerceptionResult:
         """
         带文件的感知流程
@@ -186,3 +210,20 @@ class PerceptionManager:
         if session_id in self._session_cache:
             del self._session_cache[session_id]
         logger.info(f"清空会话: {session_id}")
+
+    def _create_vector_store(self):
+        """根据配置创建向量存储实例"""
+        if vector_store_config.VECTOR_STORE_TYPE == "milvus":
+            try:
+                from .milvus_store import MilvusVectorStore
+                logger.info("创建 Milvus 向量存储实例")
+                # 使用配置中的集合名称
+                return MilvusVectorStore(
+                    collection_name=vector_store_config.COLLECTION_NAME
+                )
+            except Exception as e:
+                logger.error(f"创建 Milvus 向量存储失败: {e}")
+                return None
+        else:
+            logger.warning(f"不支持的向量存储类型: {vector_store_config.VECTOR_STORE_TYPE}")
+            return None
