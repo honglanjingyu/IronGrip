@@ -1,19 +1,19 @@
+# app/api/dependencies.py
 """依赖注入 - 管理全局 Agent 实例"""
 
-from typing import Optional, Dict
+from typing import Optional
 import asyncio
 from loguru import logger
 
-# 注意：这里需要正确导入 Agent
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from app.core import Agent, SessionManager
 
-from main import Agent, SessionManager
 
 # 全局 Agent 实例
 _agent: Optional[Agent] = None
 _agent_lock = asyncio.Lock()
+
+# 全局会话管理器
+_session_manager: SessionManager = None
 
 
 async def get_agent() -> Agent:
@@ -23,6 +23,8 @@ async def get_agent() -> Agent:
     async with _agent_lock:
         if _agent is None:
             _agent = Agent()
+            # 设置会话管理器
+            _agent.set_session_manager(get_session_manager())
             await _agent.initialize()
 
         return _agent
@@ -35,10 +37,9 @@ async def reset_agent():
         _agent = None
 
 
-# 会话管理器（用于跟踪活跃会话）
-_session_manager = SessionManager()
-
-
 def get_session_manager() -> SessionManager:
-    """获取会话管理器"""
+    """获取会话管理器（单例）"""
+    global _session_manager
+    if _session_manager is None:
+        _session_manager = SessionManager()
     return _session_manager

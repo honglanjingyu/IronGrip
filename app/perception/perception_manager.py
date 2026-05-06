@@ -4,21 +4,19 @@
 from typing import Optional, Dict, Any
 from loguru import logger
 
-from .models import PerceptionResult, InputData
+from .models import PerceptionResult, InputData, MemoryItem, MemoryType
 from .input_handler import InputHandler
 from .environment_sensor import EnvironmentSensor
-from .memory_retriever import MemoryRetriever
 from .config import vector_store_config, validate_config
+from datetime import datetime
+
+# 导入统一记忆管理器
+from app.memory import get_memory_manager
 
 
 class PerceptionManager:
     """
-    感知管理器
-
-    统一管理：
-    1. 输入处理
-    2. 环境感知
-    3. 记忆检索
+    感知管理器 - 使用统一的记忆管理器
     """
 
     def __init__(self, vector_store_manager=None):
@@ -26,7 +24,7 @@ class PerceptionManager:
         初始化感知管理器
 
         Args:
-            vector_store_manager: 向量存储管理器（用于长期记忆）
+            vector_store_manager: 向量存储管理器（已废弃，使用统一记忆管理器）
         """
         # 验证配置
         validate_config()
@@ -34,30 +32,18 @@ class PerceptionManager:
         self.input_handler = InputHandler()
         self.environment_sensor = EnvironmentSensor()
 
-        # 如果没有传入向量存储管理器且启用了存储，则自动创建
-        if vector_store_manager is None and vector_store_config.ENABLE_STORAGE:
-            vector_store_manager = self._create_vector_store()
-
-        self.memory_retriever = MemoryRetriever(vector_store_manager)
+        # 直接使用全局记忆管理器（单例）
+        self._memory_manager = get_memory_manager(vector_store=vector_store_manager)
 
         # 会话状态缓存
         self._session_cache: Dict[str, Dict] = {}
 
-        logger.info("PerceptionManager 初始化完成")
+        logger.info("PerceptionManager 初始化完成（使用统一记忆管理器）")
 
-    def _create_vector_store(self):
-        """根据配置创建向量存储实例"""
-        if vector_store_config.VECTOR_STORE_TYPE == "milvus":
-            try:
-                from .milvus_store import MilvusVectorStore
-                logger.info("创建 Milvus 向量存储实例")
-                return MilvusVectorStore()
-            except Exception as e:
-                logger.error(f"创建 Milvus 向量存储失败: {e}")
-                return None
-        else:
-            logger.warning(f"不支持的向量存储类型: {vector_store_config.VECTOR_STORE_TYPE}")
-            return None
+    @property
+    def memory_retriever(self):
+        """为了兼容性，提供 memory_retriever 属性"""
+        return self
 
     async def perceive(
             self,
@@ -69,18 +55,11 @@ class PerceptionManager:
     ) -> PerceptionResult:
         """
         执行完整的感知流程
-
-        Args:
-            input_text: 用户输入文本
-            session_id: 会话ID
-            include_long_term: 是否包含长期记忆检索
-            top_k: 长期记忆返回数量
-            metadata: 附加元数据
-
-        Returns:
-            PerceptionResult: 完整的感知结果
         """
         logger.info(f"开始感知流程: session={session_id}, input='{input_text[:100]}...'")
+
+        # 设置会话
+        self._memory_manager.set_session(session_id)
 
         # 1. 输入处理
         input_data = await self.input_handler.process_text(
@@ -92,27 +71,42 @@ class PerceptionManager:
         # 2. 环境感知
         environment_context = await self.environment_sensor.scan_environment(session_id)
 
-        # 3. 记忆检索
-        short_term, long_term, working_memory = await self.memory_retriever.retrieve_all(
-            query=input_text,
-            session_id=session_id,
-            include_long_term=include_long_term,
-            top_k=top_k
-        )
+        # 3. 记忆检索（使用统一记忆管理器）
+        short_term_items = []
+        short_term_messages = self._memory_manager.get_recent_messages(10)
+        for msg in short_term_messages:
+            item = MemoryItem(
+                id=msg.get("id", ""),
+                type=MemoryType.SHORT_TERM,
+                content=f"{msg['role']}: {msg['content']}",
+                metadata=msg.get("metadata", {}),
+                score=1.0
+            )
+            short_term_items.append(item)
+
+        long_term_items = []
+        if include_long_term:
+            long_term_items = await self._memory_manager.retrieve_long_term(
+                query=input_text,
+                top_k=top_k,
+                enable_rerank=True
+            )
+
+        working_memory = self._memory_manager.get_all_working()
 
         # 4. 生成摘要
         summary = self._generate_summary(
             input_data=input_data,
             environment=environment_context,
-            short_term_count=len(short_term),
-            long_term_count=len(long_term)
+            short_term_count=len(short_term_items),
+            long_term_count=len(long_term_items)
         )
 
         result = PerceptionResult(
             input_data=input_data,
             environment_context=environment_context,
-            short_term_memory=short_term,
-            long_term_memory=long_term,
+            short_term_memory=short_term_items,
+            long_term_memory=long_term_items,
             working_memory=working_memory,
             summary=summary
         )
@@ -126,25 +120,6 @@ class PerceptionManager:
 
         logger.info(f"感知流程完成: session={session_id}")
         return result
-
-    def _generate_summary(
-            self,
-            input_data: InputData,
-            environment: Any,
-            short_term_count: int,
-            long_term_count: int
-    ) -> str:
-        """生成感知结果摘要"""
-        return f"""
-感知摘要:
-- 输入类型: {input_data.type.value}
-- 输入长度: {len(str(input_data.content))} 字符
-- 当前时间: {environment.current_time}
-- 环境状态: CPU {environment.system_status.get('cpu_percent', 'N/A')}%, 内存 {environment.system_status.get('memory_percent', 'N/A')}%
-- 活动告警: {len(environment.active_alerts)} 个
-- 短期记忆: {short_term_count} 条
-- 长期记忆: {long_term_count} 条
-        """.strip()
 
     async def perceive_with_file(
             self,
@@ -167,6 +142,9 @@ class PerceptionManager:
         """
         logger.info(f"开始文件感知流程: session={session_id}, file={file_path}")
 
+        # 设置会话
+        self._memory_manager.set_session(session_id)
+
         # 1. 处理文件输入
         input_data = await self.input_handler.process_file(file_path, session_id)
 
@@ -174,56 +152,89 @@ class PerceptionManager:
         environment_context = await self.environment_sensor.scan_environment(session_id)
 
         # 3. 记忆检索（使用文件内容作为查询）
-        short_term, long_term, working_memory = await self.memory_retriever.retrieve_all(
-            query=input_data.content[:500],
-            session_id=session_id,
-            include_long_term=include_long_term,
-            top_k=top_k
-        )
+        short_term_items = []
+        short_term_messages = self._memory_manager.get_recent_messages(10)
+        for msg in short_term_messages:
+            item = MemoryItem(
+                id=msg.get("id", ""),
+                type=MemoryType.SHORT_TERM,
+                content=f"{msg['role']}: {msg['content']}",
+                metadata=msg.get("metadata", {}),
+                score=1.0
+            )
+            short_term_items.append(item)
+
+        long_term_items = []
+        if include_long_term:
+            long_term_items = await self._memory_manager.retrieve_long_term(
+                query=input_data.content[:500],
+                top_k=top_k,
+                enable_rerank=True
+            )
+
+        working_memory = self._memory_manager.get_all_working()
 
         summary = f"文件感知: {input_data.metadata.get('file_name', 'unknown')}, 大小={input_data.metadata.get('file_size', 0)} 字符"
 
         return PerceptionResult(
             input_data=input_data,
             environment_context=environment_context,
-            short_term_memory=short_term,
-            long_term_memory=long_term,
+            short_term_memory=short_term_items,
+            long_term_memory=long_term_items,
             working_memory=working_memory,
             summary=summary
         )
+
+    def _generate_summary(
+            self,
+            input_data: InputData,
+            environment: Any,
+            short_term_count: int,
+            long_term_count: int
+    ) -> str:
+        """生成感知结果摘要"""
+        return f"""
+感知摘要:
+- 输入类型: {input_data.type.value}
+- 输入长度: {len(str(input_data.content))} 字符
+- 当前时间: {environment.current_time}
+- 环境状态: CPU {environment.system_status.get('cpu_percent', 'N/A')}%, 内存 {environment.system_status.get('memory_percent', 'N/A')}%
+- 活动告警: {len(environment.active_alerts)} 个
+- 短期记忆: {short_term_count} 条
+- 长期记忆: {long_term_count} 条
+        """.strip()
 
     def add_conversation_to_memory(
             self,
             user_input: str,
             assistant_output: str
     ):
-        """将对话添加到短期记忆"""
-        self.memory_retriever.add_to_short_term(user_input, assistant_output)
+        """将对话添加到记忆"""
+        # 注意：需要确保当前会话已设置
+        self._memory_manager.add_user_message(user_input)
+        self._memory_manager.add_assistant_message(assistant_output)
 
     def add_to_working_memory(self, key: str, value: Any):
         """添加到工作记忆"""
-        self.memory_retriever.add_to_working(key, value)
+        self._memory_manager.set_working(key, value)
 
     def clear_session(self, session_id: str):
         """清空会话"""
-        self.memory_retriever.clear_session()
+        self._memory_manager.clear_session(session_id)
         if session_id in self._session_cache:
             del self._session_cache[session_id]
         logger.info(f"清空会话: {session_id}")
 
-    def _create_vector_store(self):
-        """根据配置创建向量存储实例"""
-        if vector_store_config.VECTOR_STORE_TYPE == "milvus":
-            try:
-                from .milvus_store import MilvusVectorStore
-                logger.info("创建 Milvus 向量存储实例")
-                # 使用配置中的集合名称
-                return MilvusVectorStore(
-                    collection_name=vector_store_config.COLLECTION_NAME
-                )
-            except Exception as e:
-                logger.error(f"创建 Milvus 向量存储失败: {e}")
-                return None
-        else:
-            logger.warning(f"不支持的向量存储类型: {vector_store_config.VECTOR_STORE_TYPE}")
-            return None
+    # 代理记忆管理器的方法（保持兼容性）
+    def get_recent_messages(self, n: int = 10):
+        return self._memory_manager.get_recent_messages(n)
+
+    def get_short_term_context(self, max_messages: Optional[int] = None):
+        return self._memory_manager.get_short_term_context(max_messages)
+
+    def get_all_working(self):
+        return self._memory_manager.get_all_working()
+
+    def get_memory_manager(self):
+        """获取底层记忆管理器"""
+        return self._memory_manager

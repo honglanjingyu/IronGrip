@@ -16,7 +16,7 @@ from .models import (
     SessionResponse, StatusResponse, MemoryStatsResponse, HealthResponse
 )
 from .dependencies import get_agent, get_session_manager
-from main import Agent, SessionManager
+from app.core import Agent, SessionManager
 
 # 创建路由器
 router = APIRouter(prefix="/api/v1", tags=["Agent"])

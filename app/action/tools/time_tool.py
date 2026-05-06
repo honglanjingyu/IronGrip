@@ -22,7 +22,9 @@ async def get_current_time(timezone: str = "Asia/Shanghai", session_id: str = ""
     try:
         tz = ZoneInfo(timezone)
         now = datetime.now(tz)
-        return now.strftime('%Y-%m-%d %H:%M:%S')
+        result = now.strftime('%Y-%m-%d %H:%M:%S')
+        logger.info(f"[会话 {session_id}] 当前时间: {result}")
+        return result
     except Exception as e:
         logger.error(f"获取时间失败: {e}")
         return f"获取时间失败: {str(e)}"

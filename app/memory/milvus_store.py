@@ -359,3 +359,34 @@ class MilvusVectorStore:
                 self.collection = None
         except Exception as e:
             logger.error(f"删除集合失败: {e}")
+
+    def delete_by_session(self, session_id: str) -> int:
+        """删除指定会话的所有文档"""
+        if not self._connected or self.collection is None:
+            return 0
+
+        try:
+            # 构建过滤表达式
+            expr = f'metadata["session_id"] == "{session_id}"'
+            result = self.collection.delete(expr)
+            deleted_count = result.delete_count if hasattr(result, "delete_count") else 0
+            logger.info(f"删除会话文档: session_id={session_id}, 数量={deleted_count}")
+            return deleted_count
+        except Exception as e:
+            logger.warning(f"删除会话文档失败: {e}")
+            return 0
+
+    def delete_by_metadata(self, key: str, value: str) -> int:
+        """按元数据键值删除文档"""
+        if not self._connected or self.collection is None:
+            return 0
+
+        try:
+            expr = f'metadata["{key}"] == "{value}"'
+            result = self.collection.delete(expr)
+            deleted_count = result.delete_count if hasattr(result, "delete_count") else 0
+            logger.info(f"删除文档: {key}={value}, 数量={deleted_count}")
+            return deleted_count
+        except Exception as e:
+            logger.warning(f"删除文档失败: {e}")
+            return 0

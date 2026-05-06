@@ -1,3 +1,4 @@
+# app/perception/models.py
 """感知模块数据模型"""
 
 from typing import Any, Dict, List, Optional, Union
@@ -75,16 +76,16 @@ class PerceptionResult(BaseModel):
     summary: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
-        """转换为字典"""
+        """转换为字典 - 使用 model_dump() 替代 dict()"""
         return {
             "input": {
                 "type": self.input_data.type,
                 "content": self.input_data.content,
                 "session_id": self.input_data.session_id
             },
-            "environment": self.environment_context.dict(),
-            "short_term_memory": [m.dict() for m in self.short_term_memory],
-            "long_term_memory": [m.dict() for m in self.long_term_memory],
+            "environment": self.environment_context.model_dump(),
+            "short_term_memory": [m.model_dump() for m in self.short_term_memory],
+            "long_term_memory": [m.model_dump() for m in self.long_term_memory],
             "working_memory": self.working_memory,
             "summary": self.summary
         }

@@ -1,3 +1,4 @@
+// web/app.js
 // API 配置
 let API_BASE = '/api/v1';
 let currentSessionId = null;
@@ -28,7 +29,353 @@ const charCountSpan = document.getElementById('charCount');
 const statusIcon = document.getElementById('statusIcon');
 const statusText = document.getElementById('statusText');
 
-// 初始化
+// ========== 修复后的 Markdown 解析函数 ==========
+
+/**
+ * 转义 HTML 特殊字符
+ */
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+/**
+ * 格式化 Markdown 为 HTML
+ * 支持：标题、粗体、斜体、代码块、行内代码、列表、链接
+ */
+function formatMarkdown(text) {
+    if (!text) return '';
+
+    // 第一步：提取代码块，避免内部内容被处理
+    const codeBlocks = [];
+    let processed = text.replace(/```(\w*)\n?([\s\S]*?)```/g, (match, lang, code) => {
+        const index = codeBlocks.length;
+        codeBlocks.push({ lang: lang || 'text', code: code.trim() });
+        return `__CODE_BLOCK_${index}__`;
+    });
+
+    // 提取行内代码，临时替换
+    const inlineCodes = [];
+    processed = processed.replace(/`([^`]+)`/g, (match, code) => {
+        const index = inlineCodes.length;
+        inlineCodes.push(code);
+        return `__INLINE_CODE_${index}__`;
+    });
+
+    // 转义 HTML
+    let formatted = escapeHtml(processed);
+
+    // 恢复行内代码
+    inlineCodes.forEach((code, index) => {
+        const placeholder = `__INLINE_CODE_${index}__`;
+        formatted = formatted.replace(placeholder, `<code>${escapeHtml(code)}</code>`);
+    });
+
+    // 处理标题（必须在其他格式之前，因为标题可能包含其他标记）
+    formatted = formatted.replace(/^#### (.*?)$/gm, '<h4>$1</h4>');
+    formatted = formatted.replace(/^### (.*?)$/gm, '<h3>$1</h3>');
+    formatted = formatted.replace(/^## (.*?)$/gm, '<h2>$1</h2>');
+    formatted = formatted.replace(/^# (.*?)$/gm, '<h1>$1</h1>');
+
+    // 处理粗体
+    formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+    // 处理斜体（不匹配已经处理过的粗体）
+    formatted = formatted.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+    // 处理链接 [text](url)
+    formatted = formatted.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+
+    // 处理无序列表
+    const listLines = formatted.split('\n');
+    let inList = false;
+    let listItems = [];
+    const resultLines = [];
+
+    for (let i = 0; i < listLines.length; i++) {
+        const line = listLines[i];
+        const isListItem = /^[-*]\s+(.*)$/.test(line);
+
+        if (isListItem) {
+            if (!inList) {
+                inList = true;
+                listItems = [];
+            }
+            const content = line.replace(/^[-*]\s+/, '');
+            listItems.push(`<li>${content}</li>`);
+        } else {
+            if (inList) {
+                resultLines.push('<ul>');
+                resultLines.push(...listItems);
+                resultLines.push('</ul>');
+                inList = false;
+                listItems = [];
+            }
+            resultLines.push(line);
+        }
+    }
+
+    if (inList) {
+        resultLines.push('<ul>');
+        resultLines.push(...listItems);
+        resultLines.push('</ul>');
+    }
+
+    formatted = resultLines.join('\n');
+
+    // 处理换行（连续两个换行变成段落分隔）
+    formatted = formatted.replace(/\n\n/g, '</p><p>');
+    formatted = formatted.replace(/\n/g, '<br>');
+
+    // 包装段落
+    if (!formatted.startsWith('<h') && !formatted.startsWith('<ul') && !formatted.startsWith('<pre')) {
+        formatted = `<p>${formatted}</p>`;
+    }
+
+    // 恢复代码块
+    codeBlocks.forEach((block, index) => {
+        const placeholder = `__CODE_BLOCK_${index}__`;
+        const langClass = block.lang !== 'text' ? ` class="language-${block.lang}"` : '';
+        const escapedCode = escapeHtml(block.code);
+        formatted = formatted.replace(
+            placeholder,
+            `<pre><code${langClass}>${escapedCode}</code></pre>`
+        );
+    });
+
+    return formatted;
+}
+
+// ========== 思考动画相关函数 ==========
+
+let nextMessageId = 0;
+
+/**
+ * 添加带思考动画的等待消息
+ * @returns {string} 消息元素ID
+ */
+function addThinkingMessage() {
+    const messageId = `thinking_${Date.now()}_${nextMessageId++}`;
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message assistant thinking';
+    messageDiv.id = messageId;
+
+    messageDiv.innerHTML = `
+        <div class="message-avatar"><i class="fas fa-robot"></i></div>
+        <div class="message-content">
+            <div class="message-text">
+                <span class="thinking-text">正在思考</span>
+                <span class="thinking-dots">.</span>
+            </div>
+            <div class="message-meta"></div>
+        </div>
+    `;
+
+    messagesArea.appendChild(messageDiv);
+
+    // 启动点动画
+    startThinkingAnimation(messageId);
+
+    if (autoScroll) scrollToBottom();
+    return messageId;
+}
+
+/**
+ * 启动思考动画（... 循环闪烁）
+ * @param {string} messageId 消息元素ID
+ */
+function startThinkingAnimation(messageId) {
+    // 清除之前的动画
+    if (thinkingAnimationInterval) {
+        clearInterval(thinkingAnimationInterval);
+    }
+
+    const messageDiv = document.getElementById(messageId);
+    if (!messageDiv) return;
+
+    const dotsSpan = messageDiv.querySelector('.thinking-dots');
+    if (!dotsSpan) return;
+
+    let dotCount = 1;
+
+    thinkingAnimationInterval = setInterval(() => {
+        const currentDiv = document.getElementById(messageId);
+        if (!currentDiv) {
+            if (thinkingAnimationInterval) {
+                clearInterval(thinkingAnimationInterval);
+                thinkingAnimationInterval = null;
+            }
+            return;
+        }
+
+        const currentDotsSpan = currentDiv.querySelector('.thinking-dots');
+        if (!currentDotsSpan) return;
+
+        dotCount = (dotCount % 3) + 1;
+        currentDotsSpan.textContent = '.'.repeat(dotCount);
+
+    }, 500);
+}
+
+/**
+ * 停止思考动画
+ * @param {string} thinkingMessageId 思考消息ID
+ */
+function stopThinkingAnimation(thinkingMessageId) {
+    if (thinkingAnimationInterval) {
+        clearInterval(thinkingAnimationInterval);
+        thinkingAnimationInterval = null;
+    }
+
+    const thinkingDiv = document.getElementById(thinkingMessageId);
+    if (thinkingDiv) {
+        thinkingDiv.style.display = 'none';
+    }
+}
+
+/**
+ * 创建用于流式输出的消息（替换思考消息的位置）
+ * @param {string} oldThinkingId 旧的思考消息ID
+ * @returns {string} 新消息ID
+ */
+function createStreamingMessage(oldThinkingId) {
+    const oldDiv = document.getElementById(oldThinkingId);
+    if (!oldDiv) {
+        return addEmptyAssistantMessage();
+    }
+
+    const messageId = `msg_${Date.now()}_${nextMessageId++}`;
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message assistant';
+    messageDiv.id = messageId;
+
+    messageDiv.innerHTML = `
+        <div class="message-avatar"><i class="fas fa-robot"></i></div>
+        <div class="message-content">
+            <div class="message-text"></div>
+            <div class="message-meta">${new Date().toLocaleTimeString()}</div>
+        </div>
+    `;
+
+    oldDiv.parentNode.replaceChild(messageDiv, oldDiv);
+
+    if (autoScroll) scrollToBottom();
+    return messageId;
+}
+
+/**
+ * 添加空助手消息（用于流式响应）
+ * @returns {string} 消息ID
+ */
+function addEmptyAssistantMessage() {
+    if (thinkingAnimationInterval) {
+        clearInterval(thinkingAnimationInterval);
+        thinkingAnimationInterval = null;
+    }
+
+    const messageId = `msg_${Date.now()}_${nextMessageId++}`;
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message assistant';
+    messageDiv.id = messageId;
+
+    messageDiv.innerHTML = `
+        <div class="message-avatar"><i class="fas fa-robot"></i></div>
+        <div class="message-content">
+            <div class="message-text"></div>
+            <div class="message-meta">${new Date().toLocaleTimeString()}</div>
+        </div>
+    `;
+
+    messagesArea.appendChild(messageDiv);
+    return messageId;
+}
+
+/**
+ * 更新流式消息内容
+ * @param {string} messageId 消息ID
+ * @param {string} content 内容
+ */
+function updateStreamingMessage(messageId, content) {
+    const messageDiv = document.getElementById(messageId);
+    if (messageDiv) {
+        const textDiv = messageDiv.querySelector('.message-text');
+        if (textDiv) {
+            textDiv.innerHTML = formatMarkdown(content);
+        }
+    }
+}
+
+/**
+ * 替换思考消息为实际内容
+ * @param {string} thinkingMessageId 思考消息ID
+ * @param {string} content 实际内容
+ * @returns {string} 新消息ID
+ */
+function replaceThinkingWithContent(thinkingMessageId, content) {
+    if (thinkingAnimationInterval) {
+        clearInterval(thinkingAnimationInterval);
+        thinkingAnimationInterval = null;
+    }
+
+    const thinkingDiv = document.getElementById(thinkingMessageId);
+    if (!thinkingDiv) {
+        return addMessageToUI('assistant', content);
+    }
+
+    const textDiv = thinkingDiv.querySelector('.message-text');
+    if (textDiv) {
+        thinkingDiv.classList.remove('thinking');
+        textDiv.innerHTML = formatMarkdown(content);
+    }
+
+    const newId = `msg_${Date.now()}_${nextMessageId++}`;
+    thinkingDiv.id = newId;
+
+    const metaSpan = thinkingDiv.querySelector('.message-meta');
+    if (metaSpan) {
+        metaSpan.textContent = new Date().toLocaleTimeString();
+    }
+
+    return newId;
+}
+
+function addMessageToUI(role, content) {
+    const messageId = `msg_${Date.now()}_${nextMessageId++}`;
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${role}`;
+    messageDiv.id = messageId;
+
+    const avatar = role === 'user' ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>';
+    const formattedContent = formatMarkdown(content);
+
+    messageDiv.innerHTML = `
+        <div class="message-avatar">${avatar}</div>
+        <div class="message-content">
+            <div class="message-text">${formattedContent}</div>
+            <div class="message-meta">${new Date().toLocaleTimeString()}</div>
+        </div>
+    `;
+
+    messagesArea.appendChild(messageDiv);
+
+    if (autoScroll) scrollToBottom();
+    return messageId;
+}
+
+function updateAssistantMessage(messageId, content) {
+    const messageDiv = document.getElementById(messageId);
+    if (messageDiv) {
+        const textDiv = messageDiv.querySelector('.message-text');
+        if (textDiv) {
+            textDiv.innerHTML = formatMarkdown(content);
+        }
+    }
+}
+
+// ========== 初始化 ==========
+
 document.addEventListener('DOMContentLoaded', async () => {
     loadSettings();
     await initSession();
@@ -38,7 +385,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadChatHistoryFromStorage();
 });
 
-// 加载设置
 function loadSettings() {
     const savedApiUrl = localStorage.getItem('api_url');
     if (savedApiUrl) {
@@ -59,14 +405,12 @@ function loadSettings() {
     }
 }
 
-// 保存设置
 function saveSettings() {
     localStorage.setItem('api_url', API_BASE);
     localStorage.setItem('stream_enabled', isStreaming);
     localStorage.setItem('auto_scroll', autoScroll);
 }
 
-// 初始化会话
 async function initSession() {
     try {
         const response = await fetch(`${API_BASE}/session`, {
@@ -111,7 +455,6 @@ function updateSessionId() {
     updateHistoryList();
 }
 
-// 保存对话历史到本地存储
 function saveChatHistoryToStorage() {
     const sessionKey = `chat_history_${currentSessionId}`;
     localStorage.setItem(sessionKey, JSON.stringify(chatHistory));
@@ -124,7 +467,6 @@ function saveChatHistoryToStorage() {
     }
 }
 
-// 加载会话列表
 function loadChatHistoryFromStorage() {
     updateHistoryList();
 }
@@ -213,7 +555,6 @@ function deleteSession(sessionId) {
     }
 }
 
-// 健康检查
 async function checkHealth() {
     try {
         const response = await fetch(`${API_BASE}/health`);
@@ -229,7 +570,6 @@ async function checkHealth() {
     }
 }
 
-// 设置事件监听
 function setupEventListeners() {
     sendBtn.addEventListener('click', sendMessage);
     messageInput.addEventListener('keydown', handleKeydown);
@@ -264,7 +604,6 @@ function setupEventListeners() {
         });
     }
 
-    // 建议芯片点击 - 使用事件委托
     document.addEventListener('click', (e) => {
         const chip = e.target.closest('.suggestion-chip');
         if (chip) {
@@ -276,7 +615,6 @@ function setupEventListeners() {
         }
     });
 
-    // 模态框关闭
     document.querySelectorAll('.modal-close').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.modal').forEach(modal => {
@@ -336,161 +674,10 @@ function clearAllSessions() {
     }
 }
 
-// ========== 思考动画相关函数 ==========
+// ========== 发送消息 ==========
 
-/**
- * 添加带思考动画的等待消息
- * @returns {string} 消息元素ID
- */
-function addThinkingMessage() {
-    const messageId = `thinking_${Date.now()}_${nextMessageId++}`;
-    const messageDiv = document.createElement('div');
-    messageDiv.className = 'message assistant thinking';
-    messageDiv.id = messageId;
+let hasReceivedFirstChunk = false;
 
-    messageDiv.innerHTML = `
-        <div class="message-avatar"><i class="fas fa-robot"></i></div>
-        <div class="message-content">
-            <div class="message-text">
-                <span class="thinking-text">正在思考</span>
-                <span class="thinking-dots">...</span>
-            </div>
-            <div class="message-meta"></div>
-        </div>
-    `;
-
-    messagesArea.appendChild(messageDiv);
-
-    // 启动点动画
-    startThinkingAnimation(messageId);
-
-    if (autoScroll) scrollToBottom();
-    return messageId;
-}
-
-/**
- * 启动思考动画（... 循环闪烁）
- * @param {string} messageId 消息元素ID
- */
-function startThinkingAnimation(messageId) {
-    // 清除之前的动画
-    if (thinkingAnimationInterval) {
-        clearInterval(thinkingAnimationInterval);
-    }
-
-    const messageDiv = document.getElementById(messageId);
-    if (!messageDiv) return;
-
-    const dotsSpan = messageDiv.querySelector('.thinking-dots');
-    if (!dotsSpan) return;
-
-    let dotCount = 3;
-    let increasing = false; // true: 增加点数, false: 减少点数
-
-    thinkingAnimationInterval = setInterval(() => {
-        const currentDiv = document.getElementById(messageId);
-        if (!currentDiv) {
-            // 消息已被替换，清除动画
-            if (thinkingAnimationInterval) {
-                clearInterval(thinkingAnimationInterval);
-                thinkingAnimationInterval = null;
-            }
-            return;
-        }
-
-        const currentDotsSpan = currentDiv.querySelector('.thinking-dots');
-        if (!currentDotsSpan) return;
-
-        // 更新点数
-        if (increasing) {
-            dotCount++;
-            if (dotCount >= 3) {
-                dotCount = 3;
-                increasing = false;
-            }
-        } else {
-            dotCount--;
-            if (dotCount <= 0) {
-                dotCount = 0;
-                increasing = true;
-            }
-        }
-
-        // 显示对应的点
-        currentDotsSpan.textContent = '.'.repeat(Math.max(1, dotCount));
-
-    }, 400); // 每400毫秒变化一次
-}
-
-/**
- * 停止思考动画并替换为实际内容
- * @param {string} thinkingMessageId 思考消息ID
- * @param {string} content 实际内容
- * @returns {string} 新消息ID
- */
-function replaceThinkingWithContent(thinkingMessageId, content) {
-    // 停止动画
-    if (thinkingAnimationInterval) {
-        clearInterval(thinkingAnimationInterval);
-        thinkingAnimationInterval = null;
-    }
-
-    const thinkingDiv = document.getElementById(thinkingMessageId);
-    if (!thinkingDiv) {
-        // 如果思考消息不存在，直接创建新消息
-        return addMessageToUI('assistant', content);
-    }
-
-    // 更新消息内容
-    const textDiv = thinkingDiv.querySelector('.message-text');
-    if (textDiv) {
-        // 移除思考动画相关类
-        thinkingDiv.classList.remove('thinking');
-        textDiv.innerHTML = formatMarkdown(content);
-    }
-
-    // 更新ID
-    const newId = `msg_${Date.now()}_${nextMessageId++}`;
-    thinkingDiv.id = newId;
-
-    // 更新时间
-    const metaSpan = thinkingDiv.querySelector('.message-meta');
-    if (metaSpan) {
-        metaSpan.textContent = new Date().toLocaleTimeString();
-    }
-
-    return newId;
-}
-
-/**
- * 添加空助手消息（用于流式响应）
- * @returns {string} 消息ID
- */
-function addEmptyAssistantMessage() {
-    // 停止之前的思考动画（如果有）
-    if (thinkingAnimationInterval) {
-        clearInterval(thinkingAnimationInterval);
-        thinkingAnimationInterval = null;
-    }
-
-    const messageId = `msg_${Date.now()}_${nextMessageId++}`;
-    const messageDiv = document.createElement('div');
-    messageDiv.className = 'message assistant';
-    messageDiv.id = messageId;
-
-    messageDiv.innerHTML = `
-        <div class="message-avatar"><i class="fas fa-robot"></i></div>
-        <div class="message-content">
-            <div class="message-text"></div>
-            <div class="message-meta"></div>
-        </div>
-    `;
-
-    messagesArea.appendChild(messageDiv);
-    return messageId;
-}
-
-// 发送消息（主入口，带防重复）
 async function sendMessage() {
     if (isSending) {
         showToast('请等待上一消息完成', 'warning');
@@ -519,13 +706,11 @@ async function sendMessage() {
     }
 }
 
-// 普通模式发送
 async function sendMessageNormal(message) {
     addMessageToUI('user', message);
     messageInput.value = '';
     updateCharCount();
 
-    // 添加思考动画
     const thinkingId = addThinkingMessage();
 
     try {
@@ -541,7 +726,6 @@ async function sendMessageNormal(message) {
         if (response.ok) {
             const data = await response.json();
             if (data.success) {
-                // 替换思考动画为实际内容
                 replaceThinkingWithContent(thinkingId, data.response);
                 chatHistory.push({ role: 'user', content: message });
                 chatHistory.push({ role: 'assistant', content: data.response });
@@ -561,19 +745,13 @@ async function sendMessageNormal(message) {
     }
 }
 
-let nextMessageId = 0;
-let hasReceivedFirstChunk = false;  // 标记是否已收到第一个字符
-
-// 流式模式发送
 async function sendMessageStream(message) {
-    // 重置标记
     hasReceivedFirstChunk = false;
 
     addMessageToUI('user', message);
     messageInput.value = '';
     updateCharCount();
 
-    // 添加思考动画（不是空消息）
     const thinkingId = addThinkingMessage();
 
     let fullResponse = '';
@@ -614,16 +792,11 @@ async function sendMessageStream(message) {
                         if (data.type === 'chunk') {
                             const chunk = data.data;
                             if (chunk) {
-                                // 收到第一个字符，停止思考动画并创建真实消息
                                 if (!hasReceivedFirstChunk) {
                                     hasReceivedFirstChunk = true;
-                                    // 停止动画，替换为真实消息容器
                                     stopThinkingAnimation(thinkingId);
-                                    // 创建新的空消息用于流式追加
                                     const newMsgId = createStreamingMessage(thinkingId);
-                                    // 更新 assistantMessageId 为新的消息ID
                                     window.currentStreamingMsgId = newMsgId;
-                                    // 添加第一个字符
                                     fullResponse += chunk;
                                     updateStreamingMessage(newMsgId, fullResponse);
                                 } else {
@@ -657,12 +830,10 @@ async function sendMessageStream(message) {
             }
         }
 
-        // 如果从未收到任何字符（可能是空响应）
         if (!hasReceivedFirstChunk && !hasError) {
             replaceThinkingWithContent(thinkingId, '收到空响应，请稍后重试。');
         }
 
-        // 保存到历史（仅当没有错误且有内容时）
         if (!hasError && fullResponse && !fullResponse.startsWith('错误:')) {
             chatHistory.push({ role: 'user', content: message });
             chatHistory.push({ role: 'assistant', content: fullResponse });
@@ -678,128 +849,6 @@ async function sendMessageStream(message) {
             replaceThinkingWithContent(thinkingId, `网络错误: ${error.message}`);
         }
     }
-}
-
-/**
- * 停止思考动画（不替换内容，准备创建新消息）
- * @param {string} thinkingMessageId 思考消息ID
- */
-function stopThinkingAnimation(thinkingMessageId) {
-    // 停止动画
-    if (thinkingAnimationInterval) {
-        clearInterval(thinkingAnimationInterval);
-        thinkingAnimationInterval = null;
-    }
-
-    const thinkingDiv = document.getElementById(thinkingMessageId);
-    if (thinkingDiv) {
-        // 隐藏思考消息（稍后会被替换或移除）
-        thinkingDiv.style.display = 'none';
-    }
-}
-
-/**
- * 创建用于流式输出的消息（替换思考消息的位置）
- * @param {string} oldThinkingId 旧的思考消息ID
- * @returns {string} 新消息ID
- */
-function createStreamingMessage(oldThinkingId) {
-    const oldDiv = document.getElementById(oldThinkingId);
-    if (!oldDiv) {
-        // 回退：直接创建新消息
-        return addEmptyAssistantMessage();
-    }
-
-    // 创建新消息元素
-    const messageId = `msg_${Date.now()}_${nextMessageId++}`;
-    const messageDiv = document.createElement('div');
-    messageDiv.className = 'message assistant';
-    messageDiv.id = messageId;
-
-    messageDiv.innerHTML = `
-        <div class="message-avatar"><i class="fas fa-robot"></i></div>
-        <div class="message-content">
-            <div class="message-text"></div>
-            <div class="message-meta">${new Date().toLocaleTimeString()}</div>
-        </div>
-    `;
-
-    // 替换旧消息
-    oldDiv.parentNode.replaceChild(messageDiv, oldDiv);
-
-    if (autoScroll) scrollToBottom();
-    return messageId;
-}
-
-/**
- * 更新流式消息内容
- * @param {string} messageId 消息ID
- * @param {string} content 内容
- */
-function updateStreamingMessage(messageId, content) {
-    const messageDiv = document.getElementById(messageId);
-    if (messageDiv) {
-        const textDiv = messageDiv.querySelector('.message-text');
-        if (textDiv) {
-            textDiv.innerHTML = formatMarkdown(content);
-        }
-    }
-}
-
-function addMessageToUI(role, content) {
-    const messageId = `msg_${Date.now()}_${nextMessageId++}`;
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${role}`;
-    messageDiv.id = messageId;
-
-    const avatar = role === 'user' ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>';
-    const formattedContent = formatMarkdown(content);
-
-    messageDiv.innerHTML = `
-        <div class="message-avatar">${avatar}</div>
-        <div class="message-content">
-            <div class="message-text">${formattedContent}</div>
-            <div class="message-meta">${new Date().toLocaleTimeString()}</div>
-        </div>
-    `;
-
-    messagesArea.appendChild(messageDiv);
-
-    if (autoScroll) scrollToBottom();
-    return messageId;
-}
-
-function updateAssistantMessage(messageId, content) {
-    const messageDiv = document.getElementById(messageId);
-    if (messageDiv) {
-        const textDiv = messageDiv.querySelector('.message-text');
-        if (textDiv) {
-            textDiv.innerHTML = formatMarkdown(content);
-        }
-    }
-}
-
-function addTypingIndicator() {
-    const indicatorDiv = document.createElement('div');
-    indicatorDiv.className = 'message assistant';
-    indicatorDiv.id = 'typingIndicator';
-    indicatorDiv.innerHTML = `
-        <div class="message-avatar"><i class="fas fa-robot"></i></div>
-        <div class="message-content">
-            <div class="message-text">
-                <div class="typing-indicator">
-                    <span></span><span></span><span></span>
-                </div>
-            </div>
-        </div>
-    `;
-    messagesArea.appendChild(indicatorDiv);
-    if (autoScroll) scrollToBottom();
-}
-
-function removeTypingIndicator() {
-    const indicator = document.getElementById('typingIndicator');
-    if (indicator) indicator.remove();
 }
 
 function renderMessages() {
@@ -852,38 +901,6 @@ function renderMessages() {
     scrollToBottom();
 }
 
-function formatMarkdown(text) {
-    if (!text) return '';
-
-    let formatted = escapeHtml(text);
-
-    // 代码块
-    formatted = formatted.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code class="language-$1">$2</code></pre>');
-    // 行内代码
-    formatted = formatted.replace(/`([^`]+)`/g, '<code>$1</code>');
-    // 粗体
-    formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-    // 斜体
-    formatted = formatted.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-    // 标题
-    formatted = formatted.replace(/^### (.*$)/gm, '<h3>$1</h3>');
-    formatted = formatted.replace(/^## (.*$)/gm, '<h2>$1</h2>');
-    formatted = formatted.replace(/^# (.*$)/gm, '<h1>$1</h1>');
-    // 列表
-    formatted = formatted.replace(/^- (.*$)/gm, '<li>$1</li>');
-    formatted = formatted.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
-    // 换行
-    formatted = formatted.replace(/\n/g, '<br>');
-
-    return formatted;
-}
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
 function scrollToBottom() {
     if (autoScroll && messagesArea) {
         messagesArea.scrollTop = messagesArea.scrollHeight;
@@ -903,7 +920,8 @@ function setupAutoResize() {
     });
 }
 
-// 知识库模态框
+// ========== 知识库模态框 ==========
+
 async function openKnowledgeModal() {
     const modal = document.getElementById('knowledgeModal');
     if (modal) modal.classList.add('active');
@@ -1002,7 +1020,8 @@ async function searchKnowledge() {
     }
 }
 
-// 状态模态框
+// ========== 状态模态框 ==========
+
 async function openStatsModal() {
     const modal = document.getElementById('statsModal');
     if (modal) modal.classList.add('active');
@@ -1078,7 +1097,8 @@ function openSettingsModal() {
     }
 }
 
-// Toast 通知
+// ========== Toast 通知 ==========
+
 function showToast(message, type = 'info') {
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
