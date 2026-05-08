@@ -152,9 +152,9 @@ def main():
 
     parser = argparse.ArgumentParser(description="启动 Agent API 服务")
     parser.add_argument("--host", default="0.0.0.0", help="监听地址")
-    parser.add_argument("--port", type=int, default=8000, help="监听端口")
+    parser.add_argument("--port", type=int, default=8002, help="监听端口")
     parser.add_argument("--reload", action="store_true", help="热重载模式")
-    parser.add_argument("--mcp-port", type=int, default=8001, help="MCP 服务器端口")
+    parser.add_argument("--mcp-port", type=int, default=8003, help="MCP 服务器端口")
     parser.add_argument("--mcp-mode", choices=["stdio", "http", "embedded"],
                         default="embedded", help="MCP 运行模式")
     parser.add_argument("--console-log", action="store_true", help="同时输出日志到控制台")

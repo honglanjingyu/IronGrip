@@ -47,7 +47,7 @@ async def main():
     parser = argparse.ArgumentParser(description="MCP 服务器")
     parser.add_argument("--mode", choices=["stdio", "http"], default="stdio", help="运行模式")
     parser.add_argument("--host", default="127.0.0.1", help="HTTP 模式监听地址")
-    parser.add_argument("--port", type=int, default=8001, help="HTTP 模式监听端口")
+    parser.add_argument("--port", type=int, default=8003, help="HTTP 模式监听端口")
     parser.add_argument("--console-log", action="store_true", help="同时输出日志到控制台")
     args = parser.parse_args()
 
