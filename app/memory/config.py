@@ -1,5 +1,5 @@
 # app/memory/config.py
-"""记忆模块配置 - 适配你的环境"""
+"""记忆模块配置 - 只支持 Milvus"""
 
 import os
 from typing import Optional
@@ -27,7 +27,7 @@ load_config()
 
 
 class MemoryConfig:
-    """记忆模块配置"""
+    """记忆模块配置 - 只支持 Milvus"""
 
     # ========== Embedding 配置 ==========
     EMBEDDING_TYPE: str = os.getenv("EMBEDDING_TYPE", "remote")
@@ -51,15 +51,13 @@ class MemoryConfig:
     # 批量处理大小
     EMBEDDING_BATCH_SIZE: int = int(os.getenv("EMBEDDING_BATCH_SIZE", "32"))
 
-    # ========== 向量存储配置 ==========
+    # ========== Milvus 向量存储配置（唯一选择） ==========
     ENABLE_STORAGE: bool = os.getenv("ENABLE_STORAGE", "true").lower() == "true"
-    VECTOR_STORE_TYPE: str = os.getenv("VECTOR_STORE_TYPE", "milvus")
-
-    # Milvus 配置
-    MILVUS_HOST: str = os.getenv("VECTOR_STORE_HOST", "localhost")
+    MILVUS_HOST: str = os.getenv("VECTOR_STORE_HOST", "172.20.48.1")
     MILVUS_PORT: str = os.getenv("VECTOR_STORE_PORT", "19530")
     MILVUS_USER: str = os.getenv("VECTOR_STORE_USER", "")
     MILVUS_PASSWORD: str = os.getenv("VECTOR_STORE_PASSWORD", "")
+    COLLECTION_NAME: str = os.getenv("VECTOR_STORE_COLLECTION", "agent_long_term_memory")
 
     # ========== 检索配置 ==========
     HYBRID_VECTOR_WEIGHT: float = float(os.getenv("HYBRID_VECTOR_WEIGHT", "0.6"))

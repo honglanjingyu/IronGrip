@@ -381,6 +381,11 @@ async function handleNewChat() {
  * 非流式发送消息
  */
 async function sendMessageNormal(message) {
+    // 更新会话第一条消息缓存（如果是第一条消息）
+    if (chatHistory.length === 0 && message) {
+        await updateSessionFirstMessage(currentSessionId, message);
+    }
+
     addMessageToUI('user', message);
     messageInput.value = '';
     updateCharCount();
@@ -426,6 +431,11 @@ async function sendMessageNormal(message) {
  */
 async function sendMessageStream(message) {
     hasReceivedFirstChunk = false;
+
+    // 更新会话第一条消息缓存（如果是第一条消息）
+    if (chatHistory.length === 0 && message) {
+        await updateSessionFirstMessage(currentSessionId, message);
+    }
 
     // 添加用户消息到 UI
     addMessageToUI('user', message);

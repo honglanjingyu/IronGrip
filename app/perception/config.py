@@ -1,5 +1,5 @@
 # app/perception/config.py
-"""感知模块配置管理"""
+"""感知模块配置管理 - 只支持 Milvus"""
 
 import os
 from typing import Optional
@@ -8,10 +8,8 @@ from dotenv import load_dotenv
 from loguru import logger
 
 
-# 加载 .env 文件
 def load_config():
     """加载环境配置"""
-    # 查找 .env 文件
     env_paths = [
         Path.cwd() / ".env",
         Path(__file__).parent.parent.parent / ".env",
@@ -31,28 +29,20 @@ load_config()
 
 
 class VectorStoreConfig:
-    """向量存储配置"""
+    """Milvus 向量存储配置（唯一选择）"""
 
     # 是否启用存储
     ENABLE_STORAGE: bool = os.getenv("ENABLE_STORAGE", "true").lower() == "true"
 
-    # 向量存储类型
-    VECTOR_STORE_TYPE: str = os.getenv("VECTOR_STORE_TYPE", "milvus")
-
     # Milvus 配置
-    MILVUS_HOST: str = os.getenv("VECTOR_STORE_HOST", "localhost")
+    MILVUS_HOST: str = os.getenv("VECTOR_STORE_HOST", "172.20.48.1")
     MILVUS_PORT: str = os.getenv("VECTOR_STORE_PORT", "19530")
     MILVUS_USER: str = os.getenv("VECTOR_STORE_USER", "")
     MILVUS_PASSWORD: str = os.getenv("VECTOR_STORE_PASSWORD", "")
 
-    # Elasticsearch 配置（备用）
-    ES_HOST: str = os.getenv("VECTOR_STORE_HOST", "localhost")
-    ES_PORT: str = os.getenv("VECTOR_STORE_PORT", "9200")
-    ES_USER: str = os.getenv("VECTOR_STORE_USER", "")
-    ES_PASSWORD: str = os.getenv("VECTOR_STORE_PASSWORD", "")
-
     # 集合名称
     COLLECTION_NAME: str = os.getenv("VECTOR_STORE_COLLECTION", "agent_long_term_memory")
+
 
 class EmbeddingConfig:
     """Embedding 模型配置"""
@@ -94,7 +84,7 @@ class RetrievalConfig:
     SIMILARITY_THRESHOLD: float = float(os.getenv("SIMILARITY_THRESHOLD", "0.3"))
 
     # Rerank 配置
-    RERANK_TYPE: str = os.getenv("RERANK_TYPE", "none")  # none, remote, local
+    RERANK_TYPE: str = os.getenv("RERANK_TYPE", "none")
     RERANK_MODEL: str = os.getenv("RERANK_MODEL", "gte-rerank-v2")
     RERANK_API_URL: str = os.getenv("RERANK_API_URL", "")
 

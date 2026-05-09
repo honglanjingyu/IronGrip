@@ -1,9 +1,8 @@
-# app/brain/replanner.py
-"""重规划器 - 根据执行结果反思并调整计划"""
+# app/brain/replanner.py - 完整修复版
 
 import asyncio
 from typing import List, Dict, Any, AsyncGenerator
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from pydantic import BaseModel, Field
 from loguru import logger
 
@@ -55,8 +54,6 @@ class Replanner:
         self.llm = get_llm_client()
         logger.info("Replanner 初始化完成")
 
-    # app/brain/replanner.py (关键部分修改)
-
     async def reflect_and_decide(
             self,
             state: BrainState,
@@ -90,19 +87,19 @@ class Replanner:
 
         # 简化提示词，加快响应
         user_prompt = f"""
-    ## 任务
-    {state.input}
+## 任务
+{state.input}
 
-    ## 已执行步骤
-    {steps_summary if steps_summary else "无"}
+## 已执行步骤
+{steps_summary if steps_summary else "无"}
 
-    ## 剩余步骤
-    {remaining_plan}
+## 剩余步骤
+{remaining_plan}
 
-    ## 决策
-    请选择：'respond'（回答用户）、'continue'（继续执行）
-    仅当计划明显错误时才选择 'replan'
-    """
+## 决策
+请选择：'respond'（回答用户）、'continue'（继续执行）
+仅当计划明显错误时才选择 'replan'
+"""
 
         messages = [
             SystemMessage(content="你是任务协调员。优先选择 respond 尽快回答用户。"),
@@ -136,19 +133,83 @@ class Replanner:
             # 超时或失败时，直接生成响应
             return await self._generate_response(state, session_id)
 
+    def _get_conversation_history(self, state: BrainState) -> str:
+        """
+        从 perception_context 获取对话历史
+
+        Args:
+            state: 大脑状态
+
+        Returns:
+            str: 格式化的对话历史
+        """
+        # 从 perception_context 中获取短期记忆
+        perception_context = state.perception_context or {}
+        short_term_memory = perception_context.get("short_term_memory", [])
+
+        if not short_term_memory:
+            logger.debug("没有找到短期记忆")
+            return ""
+
+        # 格式化对话历史
+        history_lines = []
+        for item in short_term_memory:
+            if isinstance(item, dict):
+                content = item.get("content", "")
+                # 内容格式通常是 "role: content"
+                if ":" in content:
+                    parts = content.split(":", 1)
+                    role = parts[0] if len(parts) > 0 else "unknown"
+                    msg_content = parts[1] if len(parts) > 1 else content
+
+                    role_display = "用户" if role == "user" else "助手" if role == "assistant" else "系统"
+                    history_lines.append(f"{role_display}: {msg_content}")
+                else:
+                    history_lines.append(content)
+            elif hasattr(item, 'content'):
+                history_lines.append(item.content)
+
+        if history_lines:
+            result = "\n".join(history_lines)
+            logger.info(f"从感知上下文获取到 {len(history_lines)} 条对话历史")
+            return result
+
+        return ""
+
     async def _generate_response(
             self,
             state: BrainState,
             session_id: str
     ) -> Dict[str, Any]:
-        """生成最终响应"""
+        """生成最终响应（非流式）"""
         logger.info(f"[会话 {session_id}] 生成最终响应")
+
+        # 获取对话历史
+        conversation_history = self._get_conversation_history(state)
 
         # 格式化执行历史
         history_summary = self._format_history_with_results(state.past_steps)
 
-        if not history_summary:
-            # 没有执行历史，直接返回原始输入的回答
+        # 构建包含完整上下文的提示词
+        if conversation_history:
+            response_prompt = f"""
+## 对话历史
+{conversation_history}
+
+## 当前问题
+{state.input}
+
+## 执行过程和结果
+{history_summary if history_summary else "无"}
+
+## 任务
+请根据以上对话历史和执行结果，回答用户当前的问题。
+- 如果用户问的是"刚才问了什么问题"，请从对话历史中回忆并回答
+- 如果用户要求"不用查找知识库"，则不要调用外部工具
+- 回答要简洁、准确、基于上下文
+"""
+        elif not history_summary:
+            # 没有执行历史和对话历史，直接返回原始输入的回答
             response_prompt = f"请回答用户的问题：{state.input}"
         else:
             response_prompt = f"""
@@ -163,7 +224,8 @@ class Replanner:
 """
 
         messages = [
-            SystemMessage(content="你是一个专业的AI助手，请根据提供的信息生成清晰、准确的回答。"),
+            SystemMessage(
+                content="你是一个专业的AI助手，请根据提供的信息生成清晰、准确的回答。记住之前的对话内容，能够回答关于刚才提问的问题。"),
             HumanMessage(content=response_prompt)
         ]
 
@@ -174,6 +236,67 @@ class Replanner:
         except Exception as e:
             logger.error(f"[会话 {session_id}] 生成响应失败: {e}")
             return {"response": f"处理您的请求时出现问题: {str(e)}"}
+
+    async def _generate_response_stream(
+            self,
+            state: BrainState,
+            session_id: str
+    ) -> AsyncGenerator[str, None]:
+        """生成最终响应（流式）"""
+        logger.info(f"[会话 {session_id}] 生成流式响应")
+
+        # 获取对话历史
+        conversation_history = self._get_conversation_history(state)
+
+        # 格式化执行历史
+        history_summary = self._format_history_with_results(state.past_steps)
+
+        # 构建包含完整上下文的提示词
+        if conversation_history:
+            response_prompt = f"""
+## 对话历史
+{conversation_history}
+
+## 当前问题
+{state.input}
+
+## 执行过程和结果
+{history_summary if history_summary else "无"}
+
+## 任务
+请根据以上对话历史和执行结果，回答用户当前的问题。
+- 如果用户问的是"刚才问了什么问题"，请从对话历史中回忆并回答
+- 如果用户要求"不用查找知识库"，则不要调用外部工具
+- 回答要简洁、准确、基于上下文
+"""
+        elif not history_summary:
+            response_prompt = f"请回答用户的问题：{state.input}"
+        else:
+            response_prompt = f"""
+## 原始任务
+{state.input}
+
+## 执行过程和结果
+{history_summary}
+
+## 任务
+请根据以上执行结果，生成一个全面、清晰的最终响应。
+"""
+
+        messages = [
+            SystemMessage(
+                content="你是一个专业的AI助手，请根据提供的信息生成清晰、准确的回答。记住之前的对话内容，能够回答关于刚才提问的问题。"),
+            HumanMessage(content=response_prompt)
+        ]
+
+        try:
+            # 使用真正的流式调用
+            async for chunk in self.llm.stream(messages):
+                if chunk:
+                    yield chunk
+        except Exception as e:
+            logger.error(f"[会话 {session_id}] 生成流式响应失败: {e}")
+            yield f"处理您的请求时出现问题: {str(e)}"
 
     def _format_history(self, steps: List[ExecutionStep]) -> str:
         """格式化执行历史（简洁版）"""
@@ -203,44 +326,3 @@ class Replanner:
             lines.append("")
 
         return "\n".join(lines)
-
-    # app/brain/replanner.py - 添加新方法
-
-    async def _generate_response_stream(
-            self,
-            state: BrainState,
-            session_id: str
-    ) -> AsyncGenerator[str, None]:
-        """生成最终响应（真正的流式）"""
-        logger.info(f"[会话 {session_id}] 生成流式响应")
-
-        # 格式化执行历史
-        history_summary = self._format_history_with_results(state.past_steps)
-
-        if not history_summary:
-            response_prompt = f"请回答用户的问题：{state.input}"
-        else:
-            response_prompt = f"""
-    ## 原始任务
-    {state.input}
-
-    ## 执行过程和结果
-    {history_summary}
-
-    ## 任务
-    请根据以上执行结果，生成一个全面、清晰的最终响应。
-    """
-
-        messages = [
-            SystemMessage(content="你是一个专业的AI助手，请根据提供的信息生成清晰、准确的回答。"),
-            HumanMessage(content=response_prompt)
-        ]
-
-        try:
-            # 使用真正的流式调用
-            async for chunk in self.llm.stream(messages):
-                if chunk:
-                    yield chunk
-        except Exception as e:
-            logger.error(f"[会话 {session_id}] 生成流式响应失败: {e}")
-            yield f"处理您的请求时出现问题: {str(e)}"

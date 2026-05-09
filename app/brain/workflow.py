@@ -1,4 +1,5 @@
-# app/brain/workflow.py
+# app/brain/workflow.py - 完整修复版
+
 """Plan-Execute-Replan 工作流"""
 
 import asyncio
@@ -103,8 +104,16 @@ class BrainWorkflow:
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """
         运行工作流（流式）
+
+        Args:
+            user_input: 用户输入
+            perception_context: 感知上下文
+            available_tools: 可用工具列表
+
+        Yields:
+            工作流事件
         """
-        # 初始化状态
+        # 初始化状态 - 保存完整的 perception_context
         state = BrainState(
             input=user_input,
             session_id=self.session_id,
@@ -217,7 +226,7 @@ class BrainWorkflow:
         execution_step = ExecutionStep(step=step, action=action)
 
         if action.type == ActionType.TOOL_CALL and action.tool_name:
-            # 使用执行器的工具执行方法（已改为使用行动模块）
+            # 使用执行器的工具执行方法
             result = await self.executor.execute_tool(
                 tool_name=action.tool_name,
                 tool_input=action.tool_input or {},
@@ -281,7 +290,7 @@ class BrainWorkflow:
                 "input": action.tool_input
             }
 
-            # 使用执行器的工具执行方法（已改为使用行动模块）
+            # 使用执行器的工具执行方法
             result = await self.executor.execute_tool(
                 tool_name=action.tool_name,
                 tool_input=action.tool_input or {},
