@@ -274,6 +274,12 @@ async def chat(
     session_manager: SessionManager = Depends(get_session_manager)
 ):
     """与 Agent 对话 - 支持 session_id 和权限验证"""
+    try:
+        from app.dream import get_dream_scheduler
+        scheduler = get_dream_scheduler()
+        scheduler.record_request()
+    except Exception:
+        pass
     if not agent._initialized:
         return ChatResponse(
             success=False,

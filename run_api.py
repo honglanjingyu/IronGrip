@@ -66,9 +66,45 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Agent 初始化失败: {e}")
 
+    # ========== 初始化做梦模块（启动时不做梦，开启后台调度）==========
+    try:
+        from app.dream import init_dream_module
+        scheduler = await init_dream_module()
+        logger.info("🧠 做梦模块已初始化")
+        logger.info("   - 启动时不做梦")
+        logger.info("   - 每10分钟检查一次空闲状态")
+        logger.info("   - 空闲30秒后自动整理记忆")
+    except Exception as e:
+        logger.error(f"做梦模块初始化失败: {e}")
+
     yield
 
     logger.info("正在关闭 Agent 系统...")
+
+    # ========== 关闭前执行一次做梦，整理记忆 ==========
+    try:
+        from app.dream import get_dream_manager
+
+        logger.info("🌙 关闭前整理实体记忆（关闭前做梦）...")
+        dream_manager = get_dream_manager()
+        result = await dream_manager.dream()
+
+        if result.success:
+            logger.info(
+                f"✅ 关闭前整理完成: 处理 {result.sessions_processed} 个会话, 提炼 {len(result.memories_created)} 条实体记忆")
+        else:
+            logger.warning(f"关闭前整理失败: {result.message}")
+
+    except Exception as e:
+        logger.error(f"关闭前做梦失败: {e}")
+
+    # 关闭做梦调度器
+    try:
+        from app.dream import shutdown_dream_module
+        await shutdown_dream_module()
+        logger.info("做梦模块已关闭")
+    except Exception as e:
+        logger.error(f"关闭做梦模块失败: {e}")
 
 
 def create_app() -> FastAPI:

@@ -1,4 +1,4 @@
-# app/action/tools/__init__.py (修改版)
+# app/action/tools/__init__.py (更新)
 """内置行动工具 - 自动发现和注册到 MCP"""
 
 import importlib
