@@ -2,7 +2,6 @@
 """做梦管理器 - 核心模块"""
 
 import uuid
-import asyncio
 import time
 from typing import List, Optional, Dict, Any
 from datetime import datetime
@@ -42,7 +41,7 @@ class DreamManager:
         """获取 Redis 记忆管理器"""
         if self._redis_memory is None:
             try:
-                from app.memory.redis_session_memory import get_redis_memory_manager
+                from app.agent.memory import get_redis_memory_manager
                 self._redis_memory = get_redis_memory_manager()
             except Exception as e:
                 logger.warning(f"无法获取 Redis 记忆管理器: {e}")

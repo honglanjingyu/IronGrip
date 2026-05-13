@@ -55,7 +55,7 @@ class ActionManager:
 
     def register_builtin_tools(self) -> None:
         """注册内置工具 - 通过 MCP"""
-        from app.action.tools import discover_tools
+        from app.agent.action.tools import discover_tools
 
         tools = discover_tools()
 

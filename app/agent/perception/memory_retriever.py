@@ -2,20 +2,18 @@
 
 import uuid
 from typing import List, Optional, Dict, Any
-from datetime import datetime
-from collections import deque
 from loguru import logger
 
 from .models import MemoryItem, MemoryType
 from .config import retrieval_config
 
 # 导入记忆模块
-from app.memory import (
+from app.agent.memory import (
     ShortTermMemory as CoreShortTermMemory,
     WorkingMemory as CoreWorkingMemory,
     LongTermMemory as CoreLongTermMemory,
 )
-from app.memory.models import ShortTermConfig, WorkingMemoryConfig, LongTermConfig
+from app.agent.memory import ShortTermConfig, WorkingMemoryConfig
 
 
 class ShortTermMemory:

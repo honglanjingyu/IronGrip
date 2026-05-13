@@ -40,7 +40,7 @@ def cout(*args, **kwargs):
 
 
 from app.mcp import get_mcp_server, get_mcp_manager
-from app.action.tools import discover_tools
+from app.agent.action.tools import discover_tools
 
 
 async def main():

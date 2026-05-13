@@ -46,7 +46,7 @@ async def lifespan(app: FastAPI):
     try:
         mcp_manager = get_mcp_manager(use_local=True)
 
-        from app.action.tools import discover_tools
+        from app.agent.action.tools import discover_tools
         tools = discover_tools()
         for tool in tools:
             mcp_manager.register_tool(
@@ -68,7 +68,7 @@ async def lifespan(app: FastAPI):
 
     # ========== 初始化做梦模块（启动时不做梦，开启后台调度）==========
     try:
-        from app.dream import init_dream_module
+        from app.agent.dream import init_dream_module
         scheduler = await init_dream_module()
         logger.info("🧠 做梦模块已初始化")
         logger.info("   - 启动时不做梦")
@@ -83,7 +83,7 @@ async def lifespan(app: FastAPI):
 
     # ========== 关闭前执行一次做梦，整理记忆 ==========
     try:
-        from app.dream import get_dream_manager
+        from app.agent.dream import get_dream_manager
 
         logger.info("🌙 关闭前整理实体记忆（关闭前做梦）...")
         dream_manager = get_dream_manager()
@@ -100,7 +100,7 @@ async def lifespan(app: FastAPI):
 
     # 关闭做梦调度器
     try:
-        from app.dream import shutdown_dream_module
+        from app.agent.dream import shutdown_dream_module
         await shutdown_dream_module()
         logger.info("做梦模块已关闭")
     except Exception as e:

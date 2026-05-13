@@ -5,14 +5,14 @@ from typing import List, Dict, Any, Optional, AsyncGenerator
 from loguru import logger
 from langchain_core.messages import SystemMessage, HumanMessage
 
-from .models import BrainState, BrainResponse, ExecutionStep, ActionType
+from .models import BrainState, BrainResponse
 from .planner import Planner
 from .executor import Executor
 from .replanner import Replanner
 from .workflow import BrainWorkflow
 from .intent_types import IntentType
 from .intent_router import get_intent_router
-from app.action import get_action_manager
+from app.agent.action import get_action_manager
 
 
 class BrainManager:
@@ -43,7 +43,7 @@ class BrainManager:
 
     def register_builtin_tools(self) -> None:
         self.action_manager.register_builtin_tools()
-        from app.action.tools import (
+        from app.agent.action.tools import (
             get_current_time, search_knowledge, search_knowledge_with_filter,
             get_knowledge_stats, add_to_knowledge
         )

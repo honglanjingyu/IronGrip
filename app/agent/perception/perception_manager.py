@@ -7,11 +7,10 @@ from loguru import logger
 from .models import PerceptionResult, InputData, MemoryItem, MemoryType
 from .input_handler import InputHandler
 from .environment_sensor import EnvironmentSensor
-from .config import vector_store_config, validate_config
-from datetime import datetime
+from .config import validate_config
 
 # 导入统一记忆管理器
-from app.memory import get_memory_manager
+from app.agent.memory import get_memory_manager
 
 
 class PerceptionManager:

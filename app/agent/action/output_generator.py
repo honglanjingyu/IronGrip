@@ -18,7 +18,7 @@ class OutputGenerator:
     def _get_llm(self):
         """延迟获取 LLM 客户端"""
         if self._llm is None:
-            from app.brain.llm_client import get_llm_client
+            from app.agent.brain.llm_client import get_llm_client
             self._llm = get_llm_client()
         return self._llm
 

@@ -6,7 +6,7 @@ import uuid
 import warnings
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Dict, Any, List
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
@@ -58,20 +58,20 @@ class Agent:
         logger.info("=" * 50)
 
         try:
-            from app.action import get_action_manager
+            from app.agent.action import get_action_manager
             self._action_manager = get_action_manager()
             self._action_manager.register_builtin_tools()
             logger.info(f"行动模块初始化完成，工具数: {len(self._action_manager.list_tools())}")
 
-            from app.brain import get_brain_manager
+            from app.agent.brain import get_brain_manager
             self._brain_manager = get_brain_manager()
             logger.info("大脑模块初始化完成")
 
-            from app.memory import get_memory_manager
+            from app.agent.memory import get_memory_manager
             self._memory_manager = get_memory_manager()
             logger.info("记忆模块初始化完成")
 
-            from app.perception import PerceptionManager
+            from app.agent.perception import PerceptionManager
             vector_store = None
             if self._memory_manager and self._memory_manager.long_term.vector_store:
                 vector_store = self._memory_manager.long_term.vector_store

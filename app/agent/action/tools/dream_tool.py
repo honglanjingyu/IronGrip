@@ -1,7 +1,7 @@
 # app/action/tools/dream_tool.py
 """做梦模块工具 - 供 Agent 调用"""
 
-from typing import Optional, List
+from typing import Optional
 from loguru import logger
 
 
@@ -31,7 +31,7 @@ async def query_entity_memory(
     logger.info(f"[会话 {session_id}] 查询实体记忆: query='{query}'")
 
     try:
-        from app.dream import get_dream_manager
+        from app.agent.dream import get_dream_manager
 
         dream_manager = get_dream_manager()
         memories = await dream_manager.query_memories(
@@ -87,7 +87,7 @@ async def get_all_entity_memories(
     logger.info(f"[会话 {session_id}] 获取所有实体记忆, type={entity_type}")
 
     try:
-        from app.dream import get_dream_manager
+        from app.agent.dream import get_dream_manager
 
         dream_manager = get_dream_manager()
 
@@ -140,7 +140,7 @@ async def get_dream_stats(session_id: str = "") -> str:
         str: 统计信息
     """
     try:
-        from app.dream import get_dream_manager
+        from app.agent.dream import get_dream_manager
 
         dream_manager = get_dream_manager()
         stats = dream_manager.get_stats()
@@ -167,7 +167,7 @@ async def trigger_dream_now(session_id: str = "") -> str:
         str: 执行结果
     """
     try:
-        from app.dream import get_dream_scheduler
+        from app.agent.dream import get_dream_scheduler
 
         scheduler = get_dream_scheduler()
         result = await scheduler.dream_now()

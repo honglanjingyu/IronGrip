@@ -3,7 +3,6 @@
 
 import uuid
 from typing import List, Dict, Any, Optional
-from datetime import datetime
 from loguru import logger
 
 from .models import EntityMemory, EntityType, MemoryCompressionLevel
@@ -23,7 +22,7 @@ class MemoryCompressor:
     def _get_llm(self):
         """延迟获取 LLM"""
         if self._llm is None:
-            from app.brain.llm_client import get_llm_client
+            from app.agent.brain.llm_client import get_llm_client
             self._llm = get_llm_client()
         return self._llm
 
