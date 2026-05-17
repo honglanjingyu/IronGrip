@@ -1,3 +1,4 @@
+/* web/css/components.css */
 /* 组件样式 - 按钮、徽章、动画、滚动条等 */
 
 /* 滚动条样式 */
@@ -66,4 +67,183 @@
         transform: translateY(-8px);
         opacity: 1;
     }
+}
+
+/* ========== 行业研究专属样式 ========== */
+
+/* 行业研究快捷建议样式 - 普通样式，无特殊背景（已移除高亮） */
+/* 注释掉原来的高亮样式，让行业建议按钮与其他按钮样式一致 */
+
+/* 公司信息卡片样式 */
+.company-card {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin: 12px 0;
+    border-left: 3px solid var(--primary-color);
+}
+
+.company-card h4 {
+    margin: 0 0 8px 0;
+    color: var(--primary-light);
+}
+
+.company-card .company-meta {
+    font-size: 0.8rem;
+    color: var(--dark-text-secondary);
+    margin-bottom: 8px;
+}
+
+/* 融资事件样式 */
+.financing-item {
+    background: rgba(16, 185, 129, 0.1);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    margin: 8px 0;
+}
+
+.financing-item .amount {
+    color: var(--secondary-color);
+    font-weight: bold;
+}
+
+/* 对比表格样式 */
+.comparison-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+}
+
+.comparison-table th {
+    background: rgba(99, 102, 241, 0.2);
+    padding: 10px;
+    text-align: left;
+}
+
+.comparison-table td {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 8px 10px;
+}
+
+.comparison-table tr:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+/* 时间线样式 */
+.timeline {
+    margin: 12px 0;
+    padding-left: 20px;
+    border-left: 2px solid var(--primary-color);
+}
+
+.timeline-item {
+    margin: 12px 0;
+    position: relative;
+}
+
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -24px;
+    top: 4px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--primary-color);
+}
+
+.timeline-date {
+    font-weight: 600;
+    color: var(--primary-light);
+    font-size: 0.85rem;
+    display: inline-block;
+    min-width: 100px;
+}
+
+.timeline-event {
+    margin-left: 12px;
+}
+
+/* 行业研究加载状态 */
+.industry-loading {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: rgba(99, 102, 241, 0.1);
+    border-radius: var(--radius-sm);
+}
+
+.industry-loading i {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* 行业研究数据卡片 */
+.industry-data-card {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(16, 185, 129, 0.05));
+    border-radius: var(--radius);
+    padding: 16px;
+    margin: 12px 0;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.industry-data-card .card-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: var(--primary-light);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.industry-data-card .card-title i {
+    font-size: 1rem;
+}
+
+/* 推理路径样式 */
+.reasoning-path {
+    background: rgba(99, 102, 241, 0.08);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    margin: 12px 0;
+    border-left: 3px solid var(--warning-color);
+}
+
+.reasoning-path .path-title {
+    font-size: 0.8rem;
+    color: var(--warning-color);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.reasoning-path .path-content {
+    font-size: 0.85rem;
+    color: var(--dark-text-secondary);
+}
+
+.reasoning-path .path-arrow {
+    color: var(--primary-color);
+    margin: 0 4px;
+}
+
+/* 行业研究模式按钮 */
+.mode-btn.industry-mode {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(16, 185, 129, 0.05));
+}
+
+.mode-btn.industry-mode.active {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(16, 185, 129, 0.15));
+    border-color: var(--primary-color);
+}
+
+.mode-btn.industry-mode.active i {
+    color: var(--primary-color);
 }

@@ -492,23 +492,18 @@ async function sendMessageNormal(message) {
     }
 }
 
-/**
- * 流式发送消息
- */
-// web/js/api.js - 修改发送消息函数
+// web/js/api.js - 修改 sendMessageStream 函数，添加行业研究端点支持
 
 /**
- * 流式发送消息（传递模式参数）
+ * 流式发送消息（支持行业研究模式）
  */
 async function sendMessageStream(message) {
     hasReceivedFirstChunk = false;
 
-    // 更新会话第一条消息缓存
     if (chatHistory.length === 0 && message) {
         await updateSessionFirstMessage(currentSessionId, message);
     }
 
-    // 添加用户消息到 UI
     addMessageToUI('user', message);
     messageInput.value = '';
     updateCharCount();
@@ -525,21 +520,38 @@ async function sendMessageStream(message) {
             ...getAuthHeaders()
         };
 
-        // 获取当前模式状态
         const requestSearchMode = getRequestSearchMode();
         const requestIsExpert = getIsExpertMode();
+        const requestIsIndustryMode = getIsIndustryMode();
 
-        console.log('发送请求 - 搜索模式:', requestSearchMode, '专家模式:', requestIsExpert);
+        console.log('发送请求 - 模式:', {
+            searchMode: requestSearchMode,
+            isExpert: requestIsExpert,
+            isIndustryMode: requestIsIndustryMode
+        });
 
-        const response = await fetch(`${API_BASE}/chat/stream`, {
+        // 根据模式选择 API 端点
+        let apiEndpoint = `${API_BASE}/chat/stream`;
+
+        // 行业研究模式：使用专用端点（支持 GraphRAG）
+        if (requestIsIndustryMode) {
+            apiEndpoint = `${API_BASE}/chat/industry/stream`;
+            console.log('使用行业研究端点:', apiEndpoint);
+        } else if (requestSearchMode !== 'none' && /公司|企业|融资|竞品|对比|行业|趋势|市场|报告|投资/i.test(message)) {
+            // 自动检测行业研究相关问题
+            apiEndpoint = `${API_BASE}/chat/industry/stream`;
+            console.log('自动检测到行业研究问题，使用行业研究端点:', apiEndpoint);
+        }
+
+        const response = await fetch(apiEndpoint, {
             method: 'POST',
             headers: headers,
             body: JSON.stringify({
                 message: message,
                 session_id: currentSessionId,
                 stream: true,
-                search_mode: requestSearchMode,  // 新增：搜索模式
-                is_expert: requestIsExpert       // 新增：是否专家模式
+                search_mode: requestSearchMode,
+                is_expert: requestIsExpert || requestIsIndustryMode
             })
         });
 
@@ -607,6 +619,20 @@ async function sendMessageStream(message) {
                             }
                         } else if (data.type === 'complete') {
                             console.log('Stream complete', data);
+                        } else if (data.type === 'reasoning_path') {
+                            // 行业研究模式的推理路径
+                            const reasoningHtml = `<div class="reasoning-path"><div class="path-title"><i class="fas fa-code-branch"></i> 推理路径</div><div class="path-content">${escapeHtml(data.content)}</div></div>`;
+                            if (window.currentStreamingMsgId) {
+                                const msgDiv = document.getElementById(window.currentStreamingMsgId);
+                                if (msgDiv) {
+                                    const textDiv = msgDiv.querySelector('.message-text');
+                                    if (textDiv && !textDiv.querySelector('.reasoning-path')) {
+                                        textDiv.innerHTML = reasoningHtml + textDiv.innerHTML;
+                                    }
+                                }
+                            }
+                        } else if (data.type === 'retrieval_results') {
+                            console.log('检索结果:', data.results?.length || 0);
                         }
                     } catch (e) {
                         console.warn('解析 SSE 数据失败:', e, line);
@@ -619,7 +645,6 @@ async function sendMessageStream(message) {
             replaceThinkingWithContent(thinkingId, '收到空响应，请稍后重试。');
         }
 
-        // 更新本地 chatHistory
         if (!hasError && fullResponse && !fullResponse.startsWith('错误:')) {
             chatHistory.push({ role: 'user', content: message });
             chatHistory.push({ role: 'assistant', content: fullResponse });

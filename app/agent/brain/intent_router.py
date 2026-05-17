@@ -161,32 +161,32 @@ class IntentRouter:
             )
 
         prompt = f"""
-请判断以下用户输入的问题类型：
+        请判断以下用户输入的问题类型：
 
-用户输入: {user_input}
+        用户输入: {user_input}
 
-可选类型：
-- simple: 简单问题（问候、闲聊、感谢、无需外部信息的普通问答）
-- history: 历史查询（问我之前问过什么问题、查询对话历史）
-- knowledge: 知识检索（需要查询知识库获取信息）
-- complex: 复杂问题（需要多步分析、多个工具调用、复杂推理）
+        可选类型：
+        - simple: 简单问题（问候、闲聊、感谢、无需外部信息的普通问答）
+        - history: 历史查询（问我之前问过什么问题、查询对话历史）
+        - knowledge: 知识检索（需要查询知识库获取信息）
+        - complex: 复杂问题（需要多步分析、多个工具调用、复杂推理）
 
-输出格式（JSON）：
-{{
-    "intent": "simple|history|knowledge|complex",
-    "confidence": 0.0-1.0,
-    "reason": "判断理由",
-    "needs_tools": true/false,
-    "needs_planning": true/false,
-    "estimated_complexity": 1-5
-}}
+        输出 JSON 格式如下：
+        {{
+            "intent": "simple|history|knowledge|complex",
+            "confidence": 0.0-1.0,
+            "reason": "判断理由",
+            "needs_tools": true/false,
+            "needs_planning": true/false,
+            "estimated_complexity": 1-5
+        }}
 
-注意：
-- 简单的你好、谢谢等 -> simple
-- 问我问过什么、我之前问了什么 -> history  
-- 需要查询知识库的 -> knowledge（needs_tools=true, needs_planning=false）
-- 需要多步分析、复杂计算的 -> complex（needs_planning=true）
-"""
+        注意：
+        - 简单的你好、谢谢等 -> simple
+        - 问我问过什么、我之前问了什么 -> history  
+        - 需要查询知识库的 -> knowledge（needs_tools=true, needs_planning=false）
+        - 需要多步分析、复杂计算的 -> complex（needs_planning=true）
+        """
 
         try:
             import asyncio

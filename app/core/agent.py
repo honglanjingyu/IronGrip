@@ -260,3 +260,78 @@ class Agent:
                 "total": stats.total_count
             }
         return {}
+
+    async def chat_industry(
+            self,
+            user_input: str,
+            search_mode: str = "knowledge",
+            is_expert: bool = True
+    ) -> Dict[str, Any]:
+        """
+        行业研究专用对话接口
+
+        Args:
+            user_input: 用户输入
+            search_mode: 搜索模式 (knowledge/web/none)
+            is_expert: 是否专家模式（默认True）
+        """
+        if not self._initialized:
+            return {"success": False, "response": "系统正在初始化，请稍后再试..."}
+
+        if self._memory_manager:
+            self._memory_manager.set_session(self._current_session_id)
+
+        start_time = datetime.now()
+
+        try:
+            # 感知上下文
+            perception_result = await self._perception_manager.perceive(
+                input_text=user_input,
+                session_id=self._current_session_id,
+                include_long_term=True,
+                top_k=8  # 行业研究需要更多上下文
+            )
+
+            # 获取行业研究专用工具
+            from app.agent.action.tools import get_industry_tools
+            industry_tools = get_industry_tools()
+            available_tools = [
+                {"name": t.__name__, "description": t.__doc__ or ""}
+                for t in industry_tools
+            ]
+            # 同时包含通用工具
+            from app.agent.action.tools import get_general_tools
+            general_tools = get_general_tools()
+            available_tools.extend([
+                {"name": t.__name__, "description": t.__doc__ or ""}
+                for t in general_tools
+            ])
+
+            # 使用行业研究专用思考入口
+            brain_response = await self._brain_manager.think(
+                user_input=user_input,
+                session_id=self._current_session_id,
+                perception_context=perception_result.to_dict(),
+                available_tools=available_tools
+            )
+
+            if brain_response.answer:
+                if self._memory_manager:
+                    self._memory_manager.add_user_message(user_input)
+                    self._memory_manager.add_assistant_message(brain_response.answer)
+
+                if self._perception_manager:
+                    self._perception_manager.add_conversation_to_memory(user_input, brain_response.answer)
+
+            elapsed_ms = (datetime.now() - start_time).total_seconds() * 1000
+
+            return {
+                "success": True,
+                "response": brain_response.answer,
+                "steps_executed": len(brain_response.execution_history),
+                "elapsed_ms": elapsed_ms
+            }
+
+        except Exception as e:
+            logger.error(f"行业研究处理失败: {e}")
+            return {"success": False, "response": f"处理失败: {str(e)}"}

@@ -186,6 +186,96 @@ class A2AClient:
                 error=str(e)
             )
 
+    async def graph_rag_ask(
+            self,
+            question: str,
+            session_id: Optional[str] = None,
+            top_k: int = 8,
+            enable_memory: bool = True
+    ) -> Dict[str, Any]:
+        """
+        调用 GraphRAG 问答接口（知识图谱增强）
+
+        Args:
+            question: 用户问题
+            session_id: 会话ID
+            top_k: 返回结果数量
+            enable_memory: 是否启用记忆
+
+        Returns:
+            包含 answer, reasoning_path, results 的字典
+        """
+        logger.info(f"GraphRAG: 调用知识图谱问答: question='{question[:50]}...'")
+
+        # 使用 GraphRAG 专用端点
+        graph_url = f"{self.base_url}/api/chat/graph/ask"
+
+        payload = {
+            "question": question,
+            "session_id": session_id,
+            "top_k": top_k,
+            "enable_memory": enable_memory
+        }
+
+        try:
+            session = await self._get_session()
+            async with session.post(graph_url, json=payload) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    return data
+                else:
+                    error_text = await resp.text()
+                    return {
+                        "success": False,
+                        "error": f"HTTP {resp.status}: {error_text[:200]}"
+                    }
+        except Exception as e:
+            logger.error(f"GraphRAG 请求失败: {e}")
+            return {"success": False, "error": str(e)}
+
+    async def graph_rag_ask_stream(
+            self,
+            question: str,
+            session_id: Optional[str] = None,
+            top_k: int = 8
+    ) -> AsyncGenerator[Dict[str, Any], None]:
+        """
+        流式调用 GraphRAG 问答接口
+
+        Yields:
+            事件字典，包含 type 和 data
+        """
+        logger.info(f"GraphRAG: 流式调用知识图谱问答: question='{question[:50]}...'")
+
+        graph_url = f"{self.base_url}/api/chat/graph/ask/stream"
+
+        payload = {
+            "question": question,
+            "session_id": session_id,
+            "top_k": top_k,
+            "enable_memory": True
+        }
+
+        try:
+            session = await self._get_session()
+            async with session.post(graph_url, json=payload) as resp:
+                if resp.status != 200:
+                    yield {"type": "error", "data": f"HTTP {resp.status}"}
+                    return
+
+                # 解析流式响应（NDJSON 格式）
+                async for line in resp.content:
+                    if line:
+                        try:
+                            import json
+                            event = json.loads(line.decode('utf-8').strip())
+                            yield event
+                        except:
+                            continue
+        except Exception as e:
+            logger.error(f"GraphRAG 流式请求失败: {e}")
+            yield {"type": "error", "data": str(e)}
+
     async def rag_ask(
             self,
             query: str,

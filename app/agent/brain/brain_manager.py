@@ -435,6 +435,92 @@ class BrainManager:
         """.strip()
 
 
+    async def think_stream_industry(
+            self,
+            user_input: str,
+            session_id: str,
+            perception_context: Optional[Dict[str, Any]] = None,
+            available_tools: Optional[List[Dict[str, Any]]] = None,
+            search_mode: str = "knowledge",  # 行业研究默认使用知识库
+            is_expert: bool = True  # 行业研究默认使用专家模式
+    ) -> AsyncGenerator[Dict[str, Any], None]:
+        """
+        行业研究专用思考入口（流式）
+
+        特点：
+        - 默认启用 GraphRAG（知识图谱增强）
+        - 优先使用知识库检索行业报告
+        - 支持实体关系推理
+        """
+        logger.info(f"[会话 {session_id}] 行业研究模式开始: {user_input[:100]}...")
+        logger.info(f"[会话 {session_id}] 搜索模式: {search_mode}, 专家模式: {is_expert}")
+
+        # 添加 GraphRAG 状态提示
+        yield {"type": "status", "stage": "graphrag_init", "message": "正在初始化知识图谱增强检索..."}
+
+        # ========== 行业研究默认使用专家模式（LLM 自由决策）==========
+        if is_expert:
+            logger.info(f"[会话 {session_id}] 行业研究专家模式，LLM 可自由调用知识库和网络搜索工具")
+
+            workflow = BrainWorkflow(
+                planner=self.planner,
+                executor=self.executor,
+                replanner=self.replanner,
+                session_id=session_id
+            )
+
+            # 传递行业研究专用工具
+            if available_tools is None:
+                from app.agent.action.tools import get_industry_tools
+                industry_tools = get_industry_tools()
+                available_tools = [
+                    {"name": t.__name__, "description": t.__doc__ or ""}
+                    for t in industry_tools
+                ]
+
+            async for event in workflow.run_stream(
+                    user_input=user_input,
+                    perception_context=perception_context or {},
+                    available_tools=available_tools or []
+            ):
+                yield event
+
+            logger.info(f"[会话 {session_id}] 行业研究模式完成")
+            return
+
+        # ========== 非专家模式：强制使用知识库检索 ==========
+        if search_mode == "knowledge":
+            logger.info(f"[会话 {session_id}] 行业研究模式：强制使用知识库检索")
+
+            yield {"type": "status", "stage": "knowledge_retrieval", "message": "正在检索行业知识库..."}
+            yield {"type": "response_start", "stage": "response_generating"}
+
+            # 执行知识库检索
+            search_result = await self._single_knowledge_retrieval(user_input, session_id)
+
+            # 基于检索结果生成回答
+            async for chunk in self._generate_with_context(user_input, search_result, session_id):
+                if chunk:
+                    yield {"type": "response_chunk", "data": chunk}
+
+            yield {"type": "response_end", "stage": "response_complete"}
+            yield {"type": "complete", "stage": "completed", "summary": {
+                "mode": "industry_knowledge_search",
+                "has_results": bool(search_result and "没有找到" not in search_result and "失败" not in search_result)
+            }}
+            return
+
+        # 回退到通用模式
+        async for event in self.think_stream(
+                user_input=user_input,
+                session_id=session_id,
+                perception_context=perception_context,
+                available_tools=available_tools,
+                search_mode=search_mode,
+                is_expert=is_expert
+        ):
+            yield event
+
 # 全局单例
 _brain_manager: Optional[BrainManager] = None
 

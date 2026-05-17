@@ -1,3 +1,5 @@
+/* web/css/sidebar.css - 完整版（已删除行业研究专题样式） */
+
 /* 侧边栏用户信息区域 */
 .sidebar-user {
     display: flex;
@@ -59,8 +61,6 @@
 .sidebar.collapsed .btn-logout span {
     display: none;
 }
-
-
 
 /* 侧边栏样式 */
 .sidebar {
@@ -240,6 +240,8 @@
     text-align: center;
     padding: 20px;
 }
+
+/* 行业研究专题样式已删除 */
 
 .sidebar-footer {
     padding: 16px;

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>AI Agent 智能助手</title>
+    <title>AI Agent 智能助手 - 行业研究版</title>
     <link rel="stylesheet" href="/css/main.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,11 +17,9 @@
         (function() {
             console.log('执行登录检查...');
 
-            // 获取 token
             const token = localStorage.getItem('agent_token');
             console.log('Token 是否存在:', !!token);
 
-            // 如果没有 token，立即跳转到登录页
             if (!token || token === 'null' || token === 'undefined' || token === '') {
                 console.log('未找到 token，跳转到登录页面');
                 localStorage.removeItem('agent_token');
@@ -31,7 +29,6 @@
                 return;
             }
 
-            // 验证 token 是否有效
             fetch('/api/auth/verify', {
                 method: 'POST',
                 headers: {
@@ -92,7 +89,6 @@
                 </button>
             </div>
 
-            <!-- 用户信息区域 -->
             <div class="sidebar-user" id="sidebarUser">
                 <div class="user-info">
                     <i class="fas fa-user-circle"></i>
@@ -112,6 +108,8 @@
                     <div class="empty-history">暂无历史对话</div>
                 </div>
             </div>
+
+            <!-- 行业研究专题模块已删除 -->
 
             <div class="sidebar-footer">
                 <div class="system-status" id="systemStatus">
@@ -159,6 +157,7 @@
                         <h2>你好！我是 AI Agent</h2>
                         <p>我可以帮你回答问题、搜索知识、处理任务。试试问我：</p>
                         <div class="suggestion-chips">
+                            <!-- 通用建议 -->
                             <button class="suggestion-chip" data-msg="现在几点了？">
                                 <i class="fas fa-clock"></i> 现在几点了？
                             </button>
@@ -170,6 +169,19 @@
                             </button>
                             <button class="suggestion-chip" data-msg="知识库里有什么内容？">
                                 <i class="fas fa-database"></i> 知识库里有什么？
+                            </button>
+                            <!-- 行业研究专用建议 - 普通样式，无特殊选中状态 -->
+                            <button class="suggestion-chip" data-msg="帮我查一下月之暗面（Moonshot AI）这家公司，包括创始团队、融资情况和核心产品">
+                                <i class="fas fa-building"></i> 公司查询
+                            </button>
+                            <button class="suggestion-chip" data-msg="对比字节跳动的豆包和百度的文心一言，从用户量、核心功能、商业模式三个维度">
+                                <i class="fas fa-chart-simple"></i> 竞品对比
+                            </button>
+                            <button class="suggestion-chip" data-msg="整理一下2025年第一季度国内AIGC领域的融资事件，按时间排序">
+                                <i class="fas fa-coins"></i> 融资追踪
+                            </button>
+                            <button class="suggestion-chip" data-msg="AIGC行业发展趋势">
+                                <i class="fas fa-chart-line"></i> 行业趋势
                             </button>
                         </div>
                     </div>
@@ -187,7 +199,7 @@
                         </button>
                     </div>
 
-                    <!-- 模式按钮栏（类似 DeepSeek 样式） -->
+                    <!-- 模式按钮栏 -->
                     <div class="mode-bar">
                         <button class="mode-btn" id="knowledgeSearchBtn" data-mode="knowledge">
                             <i class="fas fa-database"></i>
@@ -200,6 +212,10 @@
                         <button class="mode-btn expert-mode" id="expertModeBtn" data-mode="expert">
                             <i class="fas fa-brain"></i>
                             <span>专家模式</span>
+                        </button>
+                        <button class="mode-btn industry-mode" id="industryModeBtn" data-mode="industry">
+                            <i class="fas fa-chart-line"></i>
+                            <span>行业研究</span>
                         </button>
                     </div>
 
@@ -320,7 +336,7 @@
         </div>
     </div>
 
-    <!-- JS 模块加载（按依赖顺序） -->
+    <!-- JS 模块加载 -->
     <script src="/js/config.js"></script>
     <script src="/js/utils.js"></script>
     <script src="/js/message.js"></script>

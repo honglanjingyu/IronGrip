@@ -1,4 +1,4 @@
-// web/js/config.js (修改版)
+// web/js/config.js - 完整版
 
 // API 配置
 let API_BASE = '/api/v1';
@@ -19,11 +19,21 @@ const SearchMode = {
 };
 
 // 全局模式状态
-let currentSearchMode = SearchMode.NONE;  // 当前搜索模式
-let isExpertMode = false;                 // 是否专家模式
+let currentSearchMode = SearchMode.NONE;
+let isExpertMode = false;
+let isIndustryMode = false;  // 行业研究模式
+
+// 行业研究专用的默认配置
+const IndustryConfig = {
+    defaultTopK: 8,
+    defaultRecallK: 16,
+    enableGraphRAG: true,
+    showReasoningPath: true,
+    defaultSearchMode: SearchMode.KNOWLEDGE
+};
 
 // DOM 元素引用
-let knowledgeSearchBtn, webSearchBtn, expertModeBtn;
+let knowledgeSearchBtn, webSearchBtn, expertModeBtn, industryModeBtn;
 
 // 从 URL 获取 session_id
 function getSessionIdFromURL() {
@@ -60,6 +70,7 @@ function clearURLSessionId() {
 
 // 更新会话显示
 function updateSessionDisplay() {
+    const sessionIdDisplay = document.getElementById('sessionIdDisplay');
     if (sessionIdDisplay) {
         if (currentSessionId && currentSessionId !== 'null' && currentSessionId !== 'undefined') {
             const shortId = currentSessionId.substring(0, 8) + '...';
@@ -102,12 +113,105 @@ function clearSavedSession() {
     updateSessionDisplay();
 }
 
-// DOM 元素引用
-let messagesArea, messageInput, sendBtn, newChatBtn, clearAllBtn;
-let sidebarToggle, menuBtn, sidebar, sessionIdDisplay, copySessionBtn;
-let knowledgeBtn, statsBtn, settingsBtn, streamToggle, autoScrollToggle;
-let apiUrlInput, charCountSpan, statusIcon, statusText;
+// 保存模式设置到 localStorage
+function saveModeSettings() {
+    localStorage.setItem('search_mode', currentSearchMode);
+    localStorage.setItem('expert_mode', isExpertMode);
+    localStorage.setItem('industry_mode', isIndustryMode);
+}
 
+// 加载模式设置
+function loadModeSettings() {
+    const savedMode = localStorage.getItem('search_mode');
+    if (savedMode && Object.values(SearchMode).includes(savedMode)) {
+        currentSearchMode = savedMode;
+    }
+
+    const savedExpert = localStorage.getItem('expert_mode');
+    if (savedExpert !== null) {
+        isExpertMode = savedExpert === 'true';
+    }
+
+    const savedIndustry = localStorage.getItem('industry_mode');
+    if (savedIndustry !== null) {
+        isIndustryMode = savedIndustry === 'true';
+        // 行业研究模式开启时，自动设置搜索模式
+        if (isIndustryMode && currentSearchMode === SearchMode.NONE) {
+            currentSearchMode = SearchMode.KNOWLEDGE;
+        }
+    }
+
+    // 更新按钮状态
+    updateModeButtons();
+}
+
+function updateModeButtons() {
+    if (knowledgeSearchBtn) {
+        if (currentSearchMode === SearchMode.KNOWLEDGE && !isIndustryMode) {
+            knowledgeSearchBtn.classList.add('active');
+        } else {
+            knowledgeSearchBtn.classList.remove('active');
+        }
+        // 专家模式或行业研究模式下禁用搜索按钮
+        if (isExpertMode || isIndustryMode) {
+            knowledgeSearchBtn.style.opacity = '0.5';
+            knowledgeSearchBtn.style.cursor = 'not-allowed';
+        } else {
+            knowledgeSearchBtn.style.opacity = '1';
+            knowledgeSearchBtn.style.cursor = 'pointer';
+        }
+    }
+
+    if (webSearchBtn) {
+        if (currentSearchMode === SearchMode.WEB && !isIndustryMode) {
+            webSearchBtn.classList.add('active');
+        } else {
+            webSearchBtn.classList.remove('active');
+        }
+        if (isExpertMode || isIndustryMode) {
+            webSearchBtn.style.opacity = '0.5';
+            webSearchBtn.style.cursor = 'not-allowed';
+        } else {
+            webSearchBtn.style.opacity = '1';
+            webSearchBtn.style.cursor = 'pointer';
+        }
+    }
+
+    if (expertModeBtn) {
+        if (isExpertMode) {
+            expertModeBtn.classList.add('active');
+        } else {
+            expertModeBtn.classList.remove('active');
+        }
+    }
+
+    if (industryModeBtn) {
+        if (isIndustryMode) {
+            industryModeBtn.classList.add('active');
+        } else {
+            industryModeBtn.classList.remove('active');
+        }
+    }
+}
+
+// 获取当前请求的搜索模式（用于发送到后端）
+function getRequestSearchMode() {
+    if (isExpertMode) return 'none';
+    if (isIndustryMode) return IndustryConfig.defaultSearchMode;
+    return currentSearchMode;
+}
+
+// 获取是否专家模式
+function getIsExpertMode() {
+    return isExpertMode || isIndustryMode;
+}
+
+// 获取是否行业研究模式
+function getIsIndustryMode() {
+    return isIndustryMode;
+}
+
+// 初始化 DOM 元素
 function initDomElements() {
     messagesArea = document.getElementById('messagesArea');
     messageInput = document.getElementById('messageInput');
@@ -131,108 +235,5 @@ function initDomElements() {
     knowledgeSearchBtn = document.getElementById('knowledgeSearchBtn');
     webSearchBtn = document.getElementById('webSearchBtn');
     expertModeBtn = document.getElementById('expertModeBtn');
-}
-
-// 保存模式设置到 localStorage
-function saveModeSettings() {
-    localStorage.setItem('search_mode', currentSearchMode);
-    localStorage.setItem('expert_mode', isExpertMode);
-}
-
-// 加载模式设置
-function loadModeSettings() {
-    const savedMode = localStorage.getItem('search_mode');
-    if (savedMode && Object.values(SearchMode).includes(savedMode)) {
-        currentSearchMode = savedMode;
-    }
-
-    const savedExpert = localStorage.getItem('expert_mode');
-    if (savedExpert !== null) {
-        isExpertMode = savedExpert === 'true';
-    }
-
-    // 更新按钮状态
-    updateModeButtons();
-}
-
-function updateModeButtons() {
-    if (knowledgeSearchBtn) {
-        if (currentSearchMode === SearchMode.KNOWLEDGE) {
-            knowledgeSearchBtn.classList.add('active');
-        } else {
-            knowledgeSearchBtn.classList.remove('active');
-        }
-        // 专家模式下禁用搜索按钮（视觉上半透明）
-        if (isExpertMode) {
-            knowledgeSearchBtn.style.opacity = '0.5';
-            knowledgeSearchBtn.style.cursor = 'not-allowed';
-        } else {
-            knowledgeSearchBtn.style.opacity = '1';
-            knowledgeSearchBtn.style.cursor = 'pointer';
-        }
-    }
-
-    if (webSearchBtn) {
-        if (currentSearchMode === SearchMode.WEB) {
-            webSearchBtn.classList.add('active');
-        } else {
-            webSearchBtn.classList.remove('active');
-        }
-        if (isExpertMode) {
-            webSearchBtn.style.opacity = '0.5';
-            webSearchBtn.style.cursor = 'not-allowed';
-        } else {
-            webSearchBtn.style.opacity = '1';
-            webSearchBtn.style.cursor = 'pointer';
-        }
-    }
-
-    if (expertModeBtn) {
-        if (isExpertMode) {
-            expertModeBtn.classList.add('active');
-        } else {
-            expertModeBtn.classList.remove('active');
-        }
-    }
-}
-
-// 获取当前请求的搜索模式（用于发送到后端）
-function getRequestSearchMode() {
-    if (isExpertMode) return 'none';  // 专家模式不使用搜索按钮
-    return currentSearchMode;
-}
-
-// 获取是否专家模式
-function getIsExpertMode() {
-    return isExpertMode;
-}
-
-function forceNewSession() {
-    // 清除 localStorage 中的会话数据
-    try {
-        localStorage.removeItem(STORAGE_KEY_SESSION);
-        localStorage.removeItem('sessions');
-        // 清除所有以 chat_history_ 开头的 key
-        const keysToRemove = [];
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key && key.startsWith('chat_history_')) {
-                keysToRemove.push(key);
-            }
-        }
-        keysToRemove.forEach(key => localStorage.removeItem(key));
-        console.log('已清除所有会话数据');
-    } catch (e) {
-        console.warn('清除会话数据失败:', e);
-    }
-
-    // 清除 URL 参数
-    clearURLSessionId();
-
-    // 重置全局变量
-    currentSessionId = null;
-    chatHistory = [];
-
-    // 刷新页面
-    window.location.href = window.location.pathname;
+    industryModeBtn = document.getElementById('industryModeBtn');
 }

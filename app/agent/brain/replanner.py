@@ -1,4 +1,4 @@
-# app/brain/replanner.py - 完整修复版
+# app/agent/brain/replanner.py - 修复 ReplannerOutput 字段兼容性
 
 import asyncio
 from typing import List, Dict, Any, AsyncGenerator
@@ -38,12 +38,19 @@ REPLANNER_SYSTEM_PROMPT = """你是一个重新规划专家。你需要根据已
 使用场景：
 - 原计划明显错误
 - 遇到意外情况需要调整方向
-- ⚠️ 新步骤数量不能超过剩余步骤数
 
 ## 决策原则
 - "信息足够就响应，不要追求完美"
 - 优先结束 > 保持不变 > 调整计划
 - 如果已执行步骤 >= 5，优先考虑 respond
+
+## 输出格式 (JSON)
+{
+    "action": "continue" 或 "replan" 或 "respond",
+    "new_steps": ["新步骤1", "新步骤2"]（仅当 action='replan' 时）,
+    "response": "最终响应内容"（仅当 action='respond' 时）,
+    "reasoning": "决策理由"
+}
 """
 
 
@@ -99,10 +106,18 @@ class Replanner:
 ## 决策
 请选择：'respond'（回答用户）、'continue'（继续执行）
 仅当计划明显错误时才选择 'replan'
+
+输出 JSON 格式：
+{{"action": "respond", "response": "最终响应内容", "reasoning": "理由"}}
+或
+{{"action": "continue", "reasoning": "继续执行的理由"}}
+或
+{{"action": "replan", "new_steps": ["新步骤1", "新步骤2"], "reasoning": "调整理由"}}
 """
 
         messages = [
-            SystemMessage(content="你是任务协调员。优先选择 respond 尽快回答用户。"),
+            SystemMessage(
+                content="你是任务协调员。优先选择 respond 尽快回答用户。输出必须包含 action 和 reasoning 字段。"),
             HumanMessage(content=user_prompt)
         ]
 
@@ -116,11 +131,22 @@ class Replanner:
             logger.info(f"[会话 {session_id}] Replanner 决策: {output.action}")
 
             if output.action == "respond":
-                return await self._generate_response(state, session_id)
+                # 如果有 response 字段，使用它；否则生成响应
+                if output.response:
+                    return {"response": output.response}
+                else:
+                    return await self._generate_response(state, session_id)
+
             elif output.action == "replan" and len(state.past_steps) < 5:
-                if output.new_steps and len(output.new_steps) <= len(state.plan):
+                if output.new_steps and len(output.new_steps) <= len(state.plan) + 2:
                     logger.info(f"计划已调整: {len(output.new_steps)} 个新步骤")
                     return {"plan": output.new_steps}
+                else:
+                    # 调整计划不合理，继续执行
+                    if state.plan:
+                        return {}
+                    else:
+                        return await self._generate_response(state, session_id)
             else:
                 # 默认继续执行
                 if state.plan:

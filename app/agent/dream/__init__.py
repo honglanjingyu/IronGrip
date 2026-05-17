@@ -1,4 +1,4 @@
-# app/dream/__init__.py
+# app/agent/dream/__init__.py
 """做梦模块 - 实体记忆系统"""
 
 from .models import (
@@ -14,6 +14,25 @@ from .memory_compressor import MemoryCompressor, get_memory_compressor
 from .dream_manager import DreamManager, get_dream_manager
 from .scheduler import DreamScheduler, get_dream_scheduler
 from .config import dream_config, DreamConfig
+
+
+async def init_dream_module():
+    """
+    初始化做梦模块（启动时调用）
+
+    Returns:
+        DreamScheduler: 调度器实例
+    """
+    from .scheduler import get_dream_scheduler
+
+    scheduler = get_dream_scheduler()
+
+    # 启动后台调度器（如果配置了）
+    if dream_config.ENABLE_SCHEDULER:
+        await scheduler.start()
+
+    return scheduler
+
 
 async def shutdown_dream_module():
     """关闭做梦模块"""
@@ -40,5 +59,6 @@ __all__ = [
     "get_dream_scheduler",
     "dream_config",
     "DreamConfig",
+    "init_dream_module",  # 添加导出
     "shutdown_dream_module",
 ]

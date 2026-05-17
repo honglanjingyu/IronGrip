@@ -700,3 +700,149 @@ async def reload_intent_rules(
         return {"success": True, "message": "意图路由规则已重新加载"}
     else:
         return {"success": False, "message": "重新加载失败"}
+
+
+# app/api/routes.py - 在现有 router 定义后添加以下代码
+
+# ========== 行业研究专用接口 ==========
+
+@router.post("/chat/industry")
+async def chat_industry(
+        request: ChatRequest,
+        authorization: Optional[str] = Header(None),
+        agent: Agent = Depends(get_agent),
+        session_manager: SessionManager = Depends(get_session_manager)
+):
+    """行业研究专用对话接口"""
+    # 获取或创建会话
+    if request.session_id:
+        session_id = session_manager.get_or_create(request.session_id)
+    else:
+        session_id = session_manager.get_or_create()
+
+    # 验证权限
+    is_authorized, user_id = await verify_session_auth(session_id, authorization)
+    if not is_authorized:
+        return ChatResponse(
+            success=False,
+            response="无权访问此会话",
+            session_id=session_id,
+            steps_executed=0,
+            elapsed_ms=0,
+            error="Unauthorized"
+        )
+
+    if agent._memory_manager:
+        agent._memory_manager.set_session(session_id)
+
+    # 使用行业研究模式
+    result = await agent.chat_industry(
+        user_input=request.message,
+        search_mode=request.search_mode or "knowledge",
+        is_expert=request.is_expert
+    )
+
+    return ChatResponse(
+        success=result["success"],
+        response=result.get("response", ""),
+        session_id=session_id,
+        steps_executed=result.get("steps_executed", 0),
+        elapsed_ms=result.get("elapsed_ms", 0),
+        error=result.get("error") if not result["success"] else None
+    )
+
+
+@router.post("/chat/industry/stream")
+async def chat_industry_stream(
+        request: ChatRequest,
+        authorization: Optional[str] = Header(None),
+        agent: Agent = Depends(get_agent),
+        session_manager: SessionManager = Depends(get_session_manager)
+):
+    """行业研究专用流式对话接口"""
+    # 获取或创建会话
+    if request.session_id:
+        session_id = session_manager.get_or_create(request.session_id)
+    else:
+        session_id = session_manager.get_or_create()
+
+    # 验证权限
+    is_authorized, user_id = await verify_session_auth(session_id, authorization)
+    if not is_authorized:
+        async def unauthorized_gen():
+            yield f"data: {json.dumps({'type': 'error', 'data': '无权访问此会话'})}\n\n"
+        return StreamingResponse(unauthorized_gen(), media_type="text/event-stream")
+
+    if agent._memory_manager:
+        agent._memory_manager.set_session(session_id)
+
+    async def generate():
+        try:
+            # 发送会话信息
+            yield f"data: {json.dumps({'type': 'session', 'data': {'session_id': session_id, 'mode': 'industry'}})}\n\n"
+
+            perception_result = await agent._perception_manager.perceive(
+                input_text=request.message,
+                session_id=session_id,
+                include_long_term=True,
+                top_k=8
+            )
+
+            # 获取行业研究工具
+            from app.agent.action.tools import get_industry_tools, get_general_tools
+            industry_tools = get_industry_tools()
+            general_tools = get_general_tools()
+            available_tools = [
+                {"name": t.__name__, "description": t.__doc__ or ""}
+                for t in industry_tools + general_tools
+            ]
+
+            # 使用行业研究专用流式思考
+            async for event in agent._brain_manager.think_stream_industry(
+                    user_input=request.message,
+                    session_id=session_id,
+                    perception_context=perception_result.to_dict(),
+                    available_tools=available_tools,
+                    search_mode=request.search_mode or "knowledge",
+                    is_expert=request.is_expert
+            ):
+                event_type = event.get("type")
+
+                if event_type == "response_chunk":
+                    chunk = event.get("data", "")
+                    if chunk:
+                        yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
+
+                elif event_type == "response_start":
+                    yield f"data: {json.dumps({'type': 'response_start'})}\n\n"
+
+                elif event_type == "response_end":
+                    yield f"data: {json.dumps({'type': 'response_end'})}\n\n"
+
+                elif event_type == "status":
+                    yield f"data: {json.dumps({'type': 'status', 'data': event.get('message', '')})}\n\n"
+
+                elif event_type == "plan":
+                    yield f"data: {json.dumps({'type': 'plan', 'data': event.get('steps', [])})}\n\n"
+
+                elif event_type == "step_start":
+                    yield f"data: {json.dumps({'type': 'step_start', 'data': event.get('step', '')})}\n\n"
+
+                elif event_type == "step_complete":
+                    yield f"data: {json.dumps({'type': 'step_complete', 'data': event.get('step', '')})}\n\n"
+
+                elif event_type == "tool_call":
+                    yield f"data: {json.dumps({'type': 'tool_call', 'data': event.get('tool', '')})}\n\n"
+
+                elif event_type == "complete":
+                    yield f"data: {json.dumps({'type': 'complete', 'data': event.get('summary', {})})}\n\n"
+
+            yield f"data: {json.dumps({'type': 'end', 'session_id': session_id})}\n\n"
+
+        except Exception as e:
+            logger.error(f"行业研究流式响应错误: {e}")
+            import traceback
+            traceback.print_exc()
+            yield f"data: {json.dumps({'type': 'error', 'data': str(e)})}\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream")

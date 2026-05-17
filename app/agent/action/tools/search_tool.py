@@ -73,13 +73,13 @@ async def web_search(
         logger.error(f"搜索失败: {e}")
         return f"搜索失败: {str(e)}"
 
-
 async def web_search_advanced(
         query: str,
         num_results: int = 5,
         site: Optional[str] = None,
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
+        time_range: Optional[str] = None,  # 新增：时间范围参数
         session_id: str = ""
 ) -> str:
     """
@@ -91,12 +91,13 @@ async def web_search_advanced(
         site: 限制搜索的网站，如 "github.com"
         start_date: 开始日期，格式 "YYYY-MM-DD"
         end_date: 结束日期，格式 "YYYY-MM-DD"
+        time_range: 时间范围，如 "last_month", "last_week", "last_year"（新增）
         session_id: 会话ID
 
     Returns:
         str: 格式化的搜索结果
     """
-    logger.info(f"[会话 {session_id}] 高级搜索: query='{query}', site={site}")
+    logger.info(f"[会话 {session_id}] 高级搜索: query='{query}', site={site}, time_range={time_range}")
 
     api_key = os.getenv("SERPAPI_API_KEY")
 
@@ -109,6 +110,22 @@ async def web_search_advanced(
 
     num_results = min(num_results, 10)
 
+    # 时间范围映射
+    time_range_map = {
+        "last_week": "past week",
+        "last_month": "past month",
+        "last_year": "past year",
+        "today": "past hour",
+        "yesterday": "past 24 hours"
+    }
+
+    # 如果提供了 time_range 但没有 start_date，转换 time_range
+    tbs_param = None
+    if time_range and time_range in time_range_map:
+        tbs_param = time_range_map[time_range]
+    elif start_date:
+        tbs_param = f"cdr:1,cd_min:{start_date},cd_max:{end_date or start_date}"
+
     try:
         url = "https://serpapi.com/search"
         params = {
@@ -118,8 +135,8 @@ async def web_search_advanced(
             "num": num_results,
         }
 
-        if start_date:
-            params["tbs"] = f"cdr:1,cd_min:{start_date},cd_max:{end_date or start_date}"
+        if tbs_param:
+            params["tbs"] = tbs_param
 
         async with aiohttp.ClientSession() as session:
             async with session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=30)) as response:
@@ -144,6 +161,8 @@ async def web_search_advanced(
                 output = [f"🔍 高级搜索结果 - '{query}'"]
                 if site:
                     output.append(f"站点限制: {site}")
+                if time_range:
+                    output.append(f"时间范围: {time_range}")
                 output.append(f"共找到 {len(results)} 条结果:\n")
 
                 for i, item in enumerate(results, 1):
