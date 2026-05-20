@@ -21,11 +21,10 @@ class OutputType(str, Enum):
     HTML = "html"
     COMMAND = "command"          # 操作指令
 
-
 class ToolCall(BaseModel):
     """工具调用"""
     name: str = Field(..., description="工具名称")
-    input: Dict[str, Any] = Field(default_factory=dict, description="工具参数")
+    arguments: Dict[str, Any] = Field(default_factory=dict, description="工具参数")
     timestamp: datetime = Field(default_factory=datetime.now)
 
 

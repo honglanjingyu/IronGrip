@@ -2,32 +2,10 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="5e8acab2-1f0a-4ddd-82c1-d58e7ac753d3" name="更改" comment="fix: 做梦模块、遗忘模块">
-      <change afterPath="$PROJECT_DIR$/app/a2a/graph_client.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/agent/action/tools/industry_tools.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.env" beforeDir="false" afterPath="$PROJECT_DIR$/.env" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/a2a/client.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/a2a/client.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/agent/action/tools/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/agent/action/tools/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/agent/action/tools/search_tool.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/agent/action/tools/search_tool.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/agent/brain/brain_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/agent/brain/brain_manager.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/agent/action/executor.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/agent/action/executor.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/agent/action/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/agent/action/models.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/agent/brain/executor.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/agent/brain/executor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/agent/brain/intent_router.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/agent/brain/intent_router.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/agent/brain/llm_client.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/agent/brain/llm_client.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/agent/brain/planner.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/agent/brain/planner.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/agent/brain/replanner.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/agent/brain/replanner.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/agent/dream/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/agent/dream/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/routes.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/routes.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/core/agent.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/agent.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/web/css/components.css" beforeDir="false" afterPath="$PROJECT_DIR$/web/css/components.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/web/css/sidebar.css" beforeDir="false" afterPath="$PROJECT_DIR$/web/css/sidebar.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/web/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/web/index.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/web/js/api.js" beforeDir="false" afterPath="$PROJECT_DIR$/web/js/api.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/web/js/app.js" beforeDir="false" afterPath="$PROJECT_DIR$/web/js/app.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/web/js/config.js" beforeDir="false" afterPath="$PROJECT_DIR$/web/js/config.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/web/js/events.js" beforeDir="false" afterPath="$PROJECT_DIR$/web/js/events.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/web/js/message.js" beforeDir="false" afterPath="$PROJECT_DIR$/web/js/message.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/web/js/utils.js" beforeDir="false" afterPath="$PROJECT_DIR$/web/js/utils.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/优化.txt" beforeDir="false" afterPath="$PROJECT_DIR$/优化.txt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -185,6 +163,9 @@
       <workItem from="1778984797396" duration="3780000" />
       <workItem from="1778989760671" duration="167000" />
       <workItem from="1778998364830" duration="11367000" />
+      <workItem from="1779163222689" duration="83000" />
+      <workItem from="1779265920589" duration="945000" />
+      <workItem from="1779275027098" duration="25000" />
     </task>
     <task id="LOCAL-00001" summary="感知模块+Milvus">
       <option name="closed" value="true" />

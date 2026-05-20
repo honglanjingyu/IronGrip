@@ -10,12 +10,11 @@ from .llm_client import get_llm_client
 from .models import Action, ActionType, ExecutionStep
 from app.mcp import get_mcp_manager
 
-
 class ExecutorOutput(BaseModel):
     """执行器输出格式"""
     action_type: str = Field(description="动作类型: 'tool_call' 或 'direct_answer'")
     tool_name: Optional[str] = Field(None, description="工具名称（如果是 tool_call）")
-    tool_input: Optional[Dict[str, Any]] = Field(None, description="工具参数")
+    arguments: Optional[Dict[str, Any]] = Field(None, description="工具参数")  # 改名为 arguments
     answer: Optional[str] = Field(None, description="直接回答内容（如果是 direct_answer）")
     reasoning: str = Field(description="决策推理过程")
 
@@ -45,7 +44,7 @@ EXECUTOR_SYSTEM_PROMPT = """你是一个任务执行专家。你需要根据当�
 {{
     "action_type": "tool_call" 或 "direct_answer",
     "tool_name": "工具名称（仅在 tool_call 时需要）",
-    "tool_input": {{"参数名": "参数值"}}（仅在 tool_call 时需要）,
+    "arguments": {{"参数名": "参数值"}}（仅在 tool_call 时需要）,
     "answer": "直接回答内容（仅在 direct_answer 时需要）",
     "reasoning": "你的决策理由"
 }}
@@ -124,7 +123,7 @@ class Executor:
                 action = Action(
                     type=ActionType.TOOL_CALL,
                     tool_name=output.tool_name,
-                    tool_input=output.tool_input or {},
+                    tool_input=output.arguments or {},
                     reasoning=output.reasoning
                 )
                 logger.info(f"[会话 {session_id}] 决策: 调用工具 {output.tool_name}")

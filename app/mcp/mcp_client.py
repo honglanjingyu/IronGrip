@@ -87,8 +87,6 @@ class MCPClient:
         # 回退到空列表
         return []
 
-    # app/mcp/mcp_client.py - 修复 call_tool 函数
-
     async def call_tool(
             self,
             tool_name: str,

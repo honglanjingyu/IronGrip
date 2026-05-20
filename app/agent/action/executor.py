@@ -90,10 +90,10 @@ class ActionExecutor:
             session_id: str
     ) -> str:
         """执行工具调用"""
-        # 传递 session_id
+        # 只使用 arguments
         return await self.tool_registry.execute(
             tool_name=tool_call.name,
-            input_data=tool_call.input,
+            input_data=tool_call.arguments,  # 直接使用 arguments
             session_id=session_id
         )
 

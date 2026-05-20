@@ -90,8 +90,6 @@ class MCPManager:
                     description=tool.get("description", "")
                 )
 
-    # app/mcp/mcp_manager.py - 修复 call_tool 函数
-
     async def call_tool(
             self,
             tool_name: str,
